@@ -242,8 +242,8 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
               : sources.has("actual")
                 ? "actual"
                 : "calculated",
-        followers: forDate.reduce((s, r) => s + (r.followers ?? 0), 0),
-        minutes: forDate.reduce((s, r) => s + (r.minutes ?? 0), 0),
+        followers: forDate.reduce((s, r) => s + r.followerChange, 0),
+        minutes: forDate.reduce((s, r) => s + r.minutesValue, 0),
         runningTotalUsd:
           (platform?.openingBalanceUsd ?? 0) +
           all.filter((r) => r.date <= date).reduce((s, r) => s + r.usdValue, 0),
