@@ -9,8 +9,6 @@ interface Props {
   onClose: () => void;
 }
 
-const field =
-  "w-full rounded-md border border-input bg-console px-3 py-2 text-sm numeric outline-none focus:border-ring";
 
 export function AddRowDialog({ platform, date, onClose }: Props) {
   const { addRow } = useTokenTrack();
