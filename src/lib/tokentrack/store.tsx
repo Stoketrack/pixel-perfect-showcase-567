@@ -121,8 +121,8 @@ export const todayISO = () => new Date().toISOString().slice(0, 10);
 /** Minutes between two HH:mm strings; wraps past midnight. */
 export function durationMinutes(start?: string | null, end?: string | null): number | null {
   if (!start || !end) return null;
-  const [sh, sm] = start.split(":").map(Number);
-  const [eh, em] = end.split(":").map(Number);
+  const [sh = NaN, sm = NaN] = start.split(":").map(Number);
+  const [eh = NaN, em = NaN] = end.split(":").map(Number);
   if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return null;
   const diff = eh * 60 + em - (sh * 60 + sm);
   return diff < 0 ? diff + 1440 : diff;
