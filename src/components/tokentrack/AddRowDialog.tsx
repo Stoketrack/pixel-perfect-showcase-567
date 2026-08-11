@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { X } from "lucide-react";
-import { useTokenTrack } from "@/lib/tokentrack/store";
+import { useEffect, useRef, useState } from "react";
+import { Mic, MicOff, X } from "lucide-react";
+import { durationMinutes, fmtHours, fmtUsd, useTokenTrack } from "@/lib/tokentrack/store";
 import type { Platform } from "@/lib/tokentrack/types";
 
 interface Props {
@@ -15,28 +15,96 @@ const field =
 export function AddRowDialog({ platform, date, onClose }: Props) {
   const { addRow } = useTokenTrack();
   const [rowDate, setRowDate] = useState(date);
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [roomCount, setRoomCount] = useState("");
+  const [followersStart, setFollowersStart] = useState("");
+  const [followersEnd, setFollowersEnd] = useState("");
   const [tokens, setTokens] = useState("");
   const [usd, setUsd] = useState("");
-  const [followers, setFollowers] = useState("");
-  const [hours, setHours] = useState("");
-  const [minutes, setMinutes] = useState("");
   const [note, setNote] = useState("");
+  const [listening, setListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
-  const showTokens = platform.inputMode !== "usd";
-  const showUsd = platform.inputMode !== "tokens";
+  useEffect(() => {
+    const SR =
+      (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition ?? null;
+    setVoiceSupported(Boolean(SR));
+    return () => {
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        /* nothing to stop */
+      }
+    };
+  }, []);
+
+  const toggleVoice = () => {
+    const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+    const rec = new SR();
+    rec.lang = navigator.language || "en-US";
+    rec.interimResults = false;
+    rec.continuous = true;
+    rec.onresult = (event: any) => {
+      let text = "";
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        if (event.results[i].isFinal) text += event.results[i][0].transcript;
+      }
+      if (text) setNote((n) => (n ? `${n.trim()} ${text.trim()}` : text.trim()));
+    };
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    recognitionRef.current = rec;
+    try {
+      rec.start();
+      setListening(true);
+    } catch {
+      setListening(false);
+    }
+  };
 
   const num = (v: string) => (v.trim() === "" ? null : Number(v));
 
+  // Live preview of the values that will be derived from this row.
+  const previewMinutes = durationMinutes(startTime || null, endTime || null);
+  const previewUsd = num(usd) ?? (num(tokens) !== null && platform.tokenValueUsd
+    ? (num(tokens) as number) * platform.tokenValueUsd
+    : null);
+  const previewFollowerChange =
+    num(followersStart) !== null && num(followersEnd) !== null
+      ? (num(followersEnd) as number) - (num(followersStart) as number)
+      : null;
+  const previewPerHour =
+    previewMinutes && previewMinutes > 0 && previewUsd !== null
+      ? previewUsd / (previewMinutes / 60)
+      : null;
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const mins = (num(hours) ?? 0) * 60 + (num(minutes) ?? 0);
+    try {
+      recognitionRef.current?.stop();
+    } catch {
+      /* already stopped */
+    }
     addRow({
       platformId: platform.id,
       date: rowDate,
-      tokens: showTokens ? num(tokens) : null,
-      usdActual: showUsd ? num(usd) : null,
-      followers: num(followers),
-      minutes: mins || null,
+      startTime: startTime || null,
+      endTime: endTime || null,
+      roomCount: num(roomCount),
+      followersStart: num(followersStart),
+      followersEnd: num(followersEnd),
+      tokens: num(tokens),
+      usdActual: num(usd),
+      followers: previewFollowerChange,
+      minutes: previewMinutes,
       tokenValueUsdAtEntry: platform.tokenValueUsd,
       note: note.trim(),
     });
@@ -44,10 +112,10 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-100 grid place-items-center bg-console/80 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-100 grid place-items-center overflow-y-auto bg-console/80 p-4 backdrop-blur-sm">
       <form
         onSubmit={submit}
-        className="w-full max-w-md rounded-xl border border-border bg-panel shadow-panel-lift"
+        className="my-auto w-full max-w-md rounded-xl border border-border bg-panel shadow-panel-lift"
       >
         <header className="flex items-center justify-between border-b border-border bg-panel-header px-4 py-3">
           <div>
@@ -78,101 +146,161 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            {showTokens && (
-              <div>
-                <label className="label-micro" htmlFor="row-tokens">
-                  Actual tokens
-                </label>
-                <input
-                  id="row-tokens"
-                  inputMode="numeric"
-                  value={tokens}
-                  onChange={(e) => setTokens(e.target.value)}
-                  placeholder="0"
-                  className={`${field} text-token`}
-                />
-              </div>
-            )}
-            {showUsd && (
-              <div>
-                <label className="label-micro" htmlFor="row-usd">
-                  Actual USD earned
-                </label>
-                <input
-                  id="row-usd"
-                  inputMode="decimal"
-                  value={usd}
-                  onChange={(e) => setUsd(e.target.value)}
-                  placeholder="0.00"
-                  className={field}
-                />
-              </div>
-            )}
-          </div>
-
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="label-micro" htmlFor="row-followers">
-                Followers
+              <label className="label-micro" htmlFor="row-start">
+                Start time
               </label>
               <input
-                id="row-followers"
+                id="row-start"
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className={field}
+              />
+            </div>
+            <div>
+              <label className="label-micro" htmlFor="row-end">
+                End time
+              </label>
+              <input
+                id="row-end"
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className={field}
+              />
+            </div>
+            <div>
+              <label className="label-micro" htmlFor="row-rooms">
+                Room count
+              </label>
+              <input
+                id="row-rooms"
                 inputMode="numeric"
-                value={followers}
-                onChange={(e) => setFollowers(e.target.value)}
+                value={roomCount}
+                onChange={(e) => setRoomCount(e.target.value)}
+                placeholder="0"
+                className={field}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label-micro" htmlFor="row-fol-start">
+                Followers at start
+              </label>
+              <input
+                id="row-fol-start"
+                inputMode="numeric"
+                value={followersStart}
+                onChange={(e) => setFollowersStart(e.target.value)}
                 placeholder="0"
                 className={field}
               />
             </div>
             <div>
-              <label className="label-micro" htmlFor="row-hours">
-                Hours
+              <label className="label-micro" htmlFor="row-fol-end">
+                Followers at end
               </label>
               <input
-                id="row-hours"
+                id="row-fol-end"
                 inputMode="numeric"
-                value={hours}
-                onChange={(e) => setHours(e.target.value)}
+                value={followersEnd}
+                onChange={(e) => setFollowersEnd(e.target.value)}
                 placeholder="0"
                 className={field}
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label-micro" htmlFor="row-minutes">
-                Minutes
+              <label className="label-micro" htmlFor="row-tokens">
+                Tokens
               </label>
               <input
-                id="row-minutes"
+                id="row-tokens"
                 inputMode="numeric"
-                value={minutes}
-                onChange={(e) => setMinutes(e.target.value)}
-                placeholder="0"
+                value={tokens}
+                onChange={(e) => setTokens(e.target.value)}
+                placeholder="leave blank if n/a"
+                className={`${field} text-token`}
+              />
+            </div>
+            <div>
+              <label className="label-micro" htmlFor="row-usd">
+                USD earned
+              </label>
+              <input
+                id="row-usd"
+                inputMode="decimal"
+                value={usd}
+                onChange={(e) => setUsd(e.target.value)}
+                placeholder="leave blank if n/a"
                 className={field}
               />
             </div>
           </div>
 
           <div>
-            <label className="label-micro" htmlFor="row-note">
-              Note (optional)
-            </label>
-            <input
+            <div className="flex items-center justify-between">
+              <label className="label-micro" htmlFor="row-note">
+                Notes
+              </label>
+              {voiceSupported && (
+                <button
+                  type="button"
+                  onClick={toggleVoice}
+                  aria-label={listening ? "Stop dictation" : "Dictate notes"}
+                  className={`flex items-center gap-1 rounded border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${
+                    listening ? "border-token/40 text-token" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {listening ? <MicOff className="size-3" /> : <Mic className="size-3" />}
+                  {listening ? "Listening" : "Dictate"}
+                </button>
+              )}
+            </div>
+            <textarea
               id="row-note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Source of these figures"
-              className={`${field} font-sans`}
+              rows={3}
+              placeholder="Session notes, source of these figures"
+              className={`${field} font-sans resize-y`}
             />
           </div>
 
-          {showUsd && showTokens && (
-            <p className="rounded-md border border-border bg-console/60 p-2 text-[11px] text-muted-foreground">
-              Enter the figures the platform actually reported. If you leave USD blank it is
-              calculated from tokens at the rate stored with this row, and clearly labelled as
-              calculated.
-            </p>
-          )}
+          <div className="grid grid-cols-3 gap-2 rounded-md border border-border bg-console/60 p-2 text-center">
+            <div>
+              <p className="label-micro">Duration</p>
+              <p className="numeric text-xs">
+                {previewMinutes === null ? "—" : fmtHours(previewMinutes)}
+              </p>
+            </div>
+            <div>
+              <p className="label-micro">Follower change</p>
+              <p className="numeric text-xs">
+                {previewFollowerChange === null
+                  ? "—"
+                  : `${previewFollowerChange >= 0 ? "+" : ""}${previewFollowerChange}`}
+              </p>
+            </div>
+            <div>
+              <p className="label-micro">Per hour</p>
+              <p className="numeric text-xs">
+                {previewPerHour === null ? "—" : fmtUsd(previewPerHour)}
+              </p>
+            </div>
+          </div>
+
+          <p className="rounded-md border border-border bg-console/60 p-2 text-[11px] text-muted-foreground">
+            Record only what the platform actually reported. Tokens or USD may be left blank — no
+            conversion rate is invented. Derived figures are always recalculated from these
+            originals.
+          </p>
         </div>
 
         <footer className="flex justify-end gap-2 border-t border-border px-4 py-3">

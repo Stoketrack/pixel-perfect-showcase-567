@@ -26,9 +26,19 @@ export interface EntryRow {
   platformId: string;
   /** ISO date (yyyy-mm-dd) the record belongs to. */
   date: string;
+  /** Session start/end as HH:mm (24h). Optional for legacy rows. */
+  startTime?: string | null;
+  endTime?: string | null;
+  /** Number of rooms/shows in the session. */
+  roomCount?: number | null;
+  /** Follower snapshots — never overwritten, kept per session. */
+  followersStart?: number | null;
+  followersEnd?: number | null;
   tokens: number | null;
   usdActual: number | null;
+  /** Legacy net follower change when start/end snapshots are absent. */
   followers: number | null;
+  /** Legacy manual duration in minutes when start/end times are absent. */
   minutes: number | null;
   /** Rate captured at entry time so history is never rewritten. */
   tokenValueUsdAtEntry: number | null;
@@ -40,4 +50,11 @@ export interface EntryRow {
 export interface DerivedRow extends EntryRow {
   usdValue: number;
   usdSource: ValueSource;
+  /** Session duration in minutes, from start/end times when available. */
+  minutesValue: number;
+  /** Followers at end minus followers at start. */
+  followerChange: number;
+  /** USD earned per hour of session time; null when duration is zero. */
+  usdPerHour: number | null;
 }
+

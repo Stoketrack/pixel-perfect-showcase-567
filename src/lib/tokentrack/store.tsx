@@ -118,16 +118,47 @@ function load(): PersistedState {
 
 export const todayISO = () => new Date().toISOString().slice(0, 10);
 
+/** Minutes between two HH:mm strings; wraps past midnight. */
+export function durationMinutes(start?: string | null, end?: string | null): number | null {
+  if (!start || !end) return null;
+  const [sh = NaN, sm = NaN] = start.split(":").map(Number);
+  const [eh = NaN, em = NaN] = end.split(":").map(Number);
+  if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return null;
+  const diff = eh * 60 + em - (sh * 60 + sm);
+  return diff < 0 ? diff + 1440 : diff;
+}
+
 /** Single source of truth for turning a stored row into a USD figure. */
 export function deriveRow(row: EntryRow): DerivedRow {
+  const minutesValue = durationMinutes(row.startTime, row.endTime) ?? row.minutes ?? 0;
+  const followerChange =
+    row.followersStart !== null &&
+    row.followersStart !== undefined &&
+    row.followersEnd !== null &&
+    row.followersEnd !== undefined
+      ? row.followersEnd - row.followersStart
+      : (row.followers ?? 0);
+
+  let usdValue = 0;
+  let usdSource: DerivedRow["usdSource"] = "estimated";
   if (row.usdActual !== null && row.usdActual !== undefined) {
-    return { ...row, usdValue: row.usdActual, usdSource: "actual" };
+    usdValue = row.usdActual;
+    usdSource = "actual";
+  } else if (row.tokens !== null && row.tokenValueUsdAtEntry) {
+    usdValue = row.tokens * row.tokenValueUsdAtEntry;
+    usdSource = "calculated";
   }
-  if (row.tokens !== null && row.tokenValueUsdAtEntry) {
-    return { ...row, usdValue: row.tokens * row.tokenValueUsdAtEntry, usdSource: "calculated" };
-  }
-  return { ...row, usdValue: 0, usdSource: "estimated" };
+
+  return {
+    ...row,
+    usdValue,
+    usdSource,
+    minutesValue,
+    followerChange,
+    usdPerHour: minutesValue > 0 ? usdValue / (minutesValue / 60) : null,
+  };
 }
+
 
 export const fmtUsd = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
@@ -211,8 +242,8 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
               : sources.has("actual")
                 ? "actual"
                 : "calculated",
-        followers: forDate.reduce((s, r) => s + (r.followers ?? 0), 0),
-        minutes: forDate.reduce((s, r) => s + (r.minutes ?? 0), 0),
+        followers: forDate.reduce((s, r) => s + r.followerChange, 0),
+        minutes: forDate.reduce((s, r) => s + r.minutesValue, 0),
         runningTotalUsd:
           (platform?.openingBalanceUsd ?? 0) +
           all.filter((r) => r.date <= date).reduce((s, r) => s + r.usdValue, 0),
