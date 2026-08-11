@@ -136,8 +136,8 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
         </header>
 
         <div className="p-3">
-          <div className="flex items-end gap-2 overflow-x-auto pb-1">
-            <div className="min-w-[118px]">
+          <div className="flex items-end gap-1.5 overflow-x-auto pb-1">
+            <div className="min-w-[108px]">
               <label className="label-micro" htmlFor="row-date">
                 Date
               </label>
@@ -150,9 +150,9 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="min-w-[86px]">
+            <div className="min-w-[78px]">
               <label className="label-micro" htmlFor="row-start">
-                Start time
+                Start
               </label>
               <input
                 id="row-start"
@@ -163,9 +163,9 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="min-w-[86px]">
+            <div className="min-w-[78px]">
               <label className="label-micro" htmlFor="row-end">
-                End time
+                End
               </label>
               <input
                 id="row-end"
@@ -176,7 +176,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="min-w-[72px]">
+            <div className="min-w-[60px]">
               <label className="label-micro" htmlFor="row-rooms">
                 Rooms
               </label>
@@ -190,7 +190,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="min-w-[96px]">
+            <div className="min-w-[80px]">
               <label className="label-micro" htmlFor="row-fol-start">
                 Fol. start
               </label>
@@ -204,7 +204,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="min-w-[96px]">
+            <div className="min-w-[80px]">
               <label className="label-micro" htmlFor="row-fol-end">
                 Fol. end
               </label>
@@ -220,7 +220,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
 
             <div className="w-px self-stretch bg-border/60" aria-hidden="true" />
 
-            <div className="min-w-[96px]">
+            <div className="min-w-[80px]">
               <label className="label-micro" htmlFor="row-tokens">
                 Tokens
               </label>
@@ -234,9 +234,9 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="min-w-[96px]">
+            <div className="min-w-[80px]">
               <label className="label-micro" htmlFor="row-usd">
-                USD earned
+                USD
               </label>
               <input
                 id="row-usd"
@@ -248,7 +248,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="min-w-[140px] flex-1">
+            <div className="min-w-[100px] flex-1">
               <div className="flex items-center justify-between">
                 <label className="label-micro" htmlFor="row-note">
                   Notes
@@ -271,24 +271,24 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={1}
-                placeholder="Session notes"
+                placeholder="Notes"
                 className={`${compactField} min-h-[32px] font-sans resize-y`}
               />
             </div>
 
-            <div className="flex items-end gap-2">
+            <div className="flex items-end gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                className="rounded-md border border-border px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="rounded-md bg-primary px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary-foreground hover:opacity-90"
+                className="rounded-md bg-primary px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-primary-foreground hover:opacity-90"
               >
-                Save row
+                Save
               </button>
             </div>
           </div>
