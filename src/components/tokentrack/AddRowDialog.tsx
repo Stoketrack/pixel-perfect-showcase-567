@@ -9,8 +9,6 @@ interface Props {
   onClose: () => void;
 }
 
-const field =
-  "w-full rounded-md border border-input bg-console px-3 py-2 text-sm numeric outline-none focus:border-ring";
 
 export function AddRowDialog({ platform, date, onClose }: Props) {
   const { addRow } = useTokenTrack();
@@ -112,32 +110,45 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
   };
 
   const compactField =
-    "w-full rounded-md border border-input bg-console px-2 py-1.5 text-xs numeric outline-none focus:border-ring";
+    "w-full rounded-md border border-input bg-console px-2 py-1 text-xs numeric outline-none focus:border-ring h-8";
+
+  const textAreaField =
+    "w-full rounded-md border border-input bg-console px-2 py-1 text-xs outline-none focus:border-ring h-8 min-h-[32px] resize-y font-sans";
 
   return (
     <div className="fixed inset-0 z-100 grid place-items-center overflow-hidden bg-console/80 p-4 backdrop-blur-sm">
       <form
         onSubmit={submit}
-        className="w-full max-w-[1200px] rounded-xl border border-border bg-panel shadow-panel-lift"
+        className="w-full max-w-[980px] rounded-xl border border-border bg-panel shadow-panel-lift"
       >
         <header className="flex items-center justify-between border-b border-border bg-panel-header px-3 py-2">
           <div>
             <p className="label-micro">New row for</p>
             <h2 className="text-sm font-semibold">{platform.name}</h2>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cancel"
-            className="grid size-7 place-items-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground"
-          >
-            <X className="size-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cancel"
+              className="grid size-7 place-items-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
         </header>
 
         <div className="p-3">
-          <div className="flex items-end gap-1.5 overflow-x-auto pb-1">
-            <div className="min-w-[108px]">
+          <div className="grid grid-cols-12 gap-2">
+            {/* Row 1 */}
+            <div className="col-span-3">
               <label className="label-micro" htmlFor="row-date">
                 Date
               </label>
@@ -150,9 +161,9 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="min-w-[78px]">
+            <div className="col-span-2">
               <label className="label-micro" htmlFor="row-start">
-                Start
+                Start time
               </label>
               <input
                 id="row-start"
@@ -163,9 +174,9 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="min-w-[78px]">
+            <div className="col-span-2">
               <label className="label-micro" htmlFor="row-end">
-                End
+                End time
               </label>
               <input
                 id="row-end"
@@ -176,9 +187,9 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="min-w-[60px]">
+            <div className="col-span-2">
               <label className="label-micro" htmlFor="row-rooms">
-                Rooms
+                Room count
               </label>
               <input
                 id="row-rooms"
@@ -190,9 +201,9 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="min-w-[80px]">
+            <div className="col-span-3">
               <label className="label-micro" htmlFor="row-fol-start">
-                Fol. start
+                Followers at Start
               </label>
               <input
                 id="row-fol-start"
@@ -204,9 +215,10 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="min-w-[80px]">
+            {/* Row 2 */}
+            <div className="col-span-3">
               <label className="label-micro" htmlFor="row-fol-end">
-                Fol. end
+                Followers at End
               </label>
               <input
                 id="row-fol-end"
@@ -218,9 +230,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="w-px self-stretch bg-border/60" aria-hidden="true" />
-
-            <div className="min-w-[80px]">
+            <div className="col-span-2">
               <label className="label-micro" htmlFor="row-tokens">
                 Tokens
               </label>
@@ -234,9 +244,9 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="min-w-[80px]">
+            <div className="col-span-2">
               <label className="label-micro" htmlFor="row-usd">
-                USD
+                USD Earned
               </label>
               <input
                 id="row-usd"
@@ -248,7 +258,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="min-w-[100px] flex-1">
+            <div className="col-span-3">
               <div className="flex items-center justify-between">
                 <label className="label-micro" htmlFor="row-note">
                   Notes
@@ -258,7 +268,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
                     type="button"
                     onClick={toggleVoice}
                     aria-label={listening ? "Stop dictation" : "Dictate notes"}
-                    className={`rounded border border-border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                    className={`rounded border border-border px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
                       listening ? "border-token/40 text-token" : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -272,23 +282,16 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
                 onChange={(e) => setNote(e.target.value)}
                 rows={1}
                 placeholder="Notes"
-                className={`${compactField} min-h-[32px] font-sans resize-y`}
+                className={textAreaField}
               />
             </div>
 
-            <div className="flex items-end gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-md border border-border px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
-              >
-                Cancel
-              </button>
+            <div className="col-span-2 flex items-end">
               <button
                 type="submit"
-                className="rounded-md bg-primary px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-primary-foreground hover:opacity-90"
+                className="w-full rounded-md bg-primary px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-primary-foreground hover:opacity-90 h-8"
               >
-                Save
+                Save Row
               </button>
             </div>
           </div>
