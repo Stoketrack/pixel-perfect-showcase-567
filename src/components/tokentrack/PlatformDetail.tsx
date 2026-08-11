@@ -69,10 +69,12 @@ export function PlatformDetail({ platform, onClose }: Props) {
             <thead className="sticky top-0 bg-panel-header">
               <tr className="label-micro">
                 <th className="px-3 py-2 font-semibold">Date</th>
+                <th className="px-2 py-2 font-semibold">Session</th>
                 <th className="px-2 py-2 font-semibold">Tokens</th>
                 <th className="px-2 py-2 font-semibold">USD</th>
                 <th className="px-2 py-2 font-semibold">Fol.</th>
                 <th className="px-2 py-2 font-semibold">Hrs</th>
+                <th className="px-2 py-2 font-semibold">$/hr</th>
                 <th className="px-2 py-2" />
               </tr>
             </thead>
@@ -85,6 +87,12 @@ export function PlatformDetail({ platform, onClose }: Props) {
                     className={`border-t border-border ${row.date === workingDate ? "bg-secondary/30" : ""}`}
                   >
                     <td className="numeric px-3 py-2 text-muted-foreground">{row.date}</td>
+                    <td className="numeric px-2 py-2 text-muted-foreground">
+                      {row.startTime && row.endTime ? `${row.startTime}–${row.endTime}` : "—"}
+                      {row.roomCount ? (
+                        <span className="ml-1 text-[9px] uppercase">{row.roomCount} rm</span>
+                      ) : null}
+                    </td>
                     <td className="px-2 py-2 text-token">
                       {isEditing ? (
                         <input
@@ -114,8 +122,19 @@ export function PlatformDetail({ platform, onClose }: Props) {
                         </span>
                       )}
                     </td>
-                    <td className="numeric px-2 py-2">{row.followers ?? "—"}</td>
-                    <td className="numeric px-2 py-2">{fmtHours(row.minutes ?? 0)}</td>
+                    <td className="numeric px-2 py-2">
+                      {row.followerChange >= 0 ? `+${row.followerChange}` : row.followerChange}
+                      {row.followersStart !== null && row.followersStart !== undefined && (
+                        <span className="ml-1 text-[9px] text-muted-foreground">
+                          {row.followersStart}→{row.followersEnd}
+                        </span>
+                      )}
+                    </td>
+                    <td className="numeric px-2 py-2">{fmtHours(row.minutesValue)}</td>
+                    <td className="numeric px-2 py-2">
+                      {row.usdPerHour === null ? "—" : fmtUsd(row.usdPerHour)}
+                    </td>
+
                     <td className="px-2 py-2">
                       <div className="flex items-center justify-end gap-1">
                         {isEditing ? (
