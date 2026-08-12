@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { DerivedRow, EntryRow, Platform, PlatformStatus } from "./types";
+import type { DerivedRow, EntryRow, Payout, Platform, PlatformStatus } from "./types";
 
 const STORAGE_KEY = "tokentrack.v1";
 export const OPENING_DATE = "2026-08-01";
@@ -15,6 +15,7 @@ export const DEFAULT_PLATFORMS: Platform[] = [
     openingBalanceUsd: 0,
     openingDate: OPENING_DATE,
     accent: "var(--color-accent)",
+    payoutDestination: "Coins.ph",
   },
   {
     id: "pf-stripchat",
@@ -26,6 +27,7 @@ export const DEFAULT_PLATFORMS: Platform[] = [
     openingBalanceUsd: 0,
     openingDate: OPENING_DATE,
     accent: "var(--color-accent)",
+    payoutDestination: "Wise",
   },
   {
     id: "pf-cam4",
@@ -37,6 +39,7 @@ export const DEFAULT_PLATFORMS: Platform[] = [
     openingBalanceUsd: 0,
     openingDate: OPENING_DATE,
     accent: "var(--color-accent)",
+    payoutDestination: "Coins.ph",
   },
   {
     id: "pf-bongacams",
@@ -48,6 +51,7 @@ export const DEFAULT_PLATFORMS: Platform[] = [
     openingBalanceUsd: 0,
     openingDate: OPENING_DATE,
     accent: "var(--color-accent)",
+    payoutDestination: "Wise",
   },
   {
     id: "pf-camsoda",
@@ -59,6 +63,7 @@ export const DEFAULT_PLATFORMS: Platform[] = [
     openingBalanceUsd: 0,
     openingDate: OPENING_DATE,
     accent: "var(--color-accent)",
+    payoutDestination: "Coins.ph",
   },
   {
     id: "pf-slot6",
@@ -70,6 +75,7 @@ export const DEFAULT_PLATFORMS: Platform[] = [
     openingBalanceUsd: 0,
     openingDate: OPENING_DATE,
     accent: "var(--color-accent)",
+    payoutDestination: "Coins.ph",
   },
 ];
 
@@ -82,8 +88,13 @@ export interface PanelLayout {
 interface PersistedState {
   platforms: Platform[];
   rows: EntryRow[];
+  payouts: Payout[];
   layout: Record<string, PanelLayout>;
+  usdPhpRate: number;
 }
+
+/** Application-wide USD to PHP rate (configurable later in Settings). */
+export const DEFAULT_USD_PHP_RATE = 58.5;
 
 const defaultLayout = (platforms: Platform[]): Record<string, PanelLayout> => {
   const out: Record<string, PanelLayout> = {};
@@ -96,7 +107,9 @@ const defaultLayout = (platforms: Platform[]): Record<string, PanelLayout> => {
 const emptyState = (): PersistedState => ({
   platforms: DEFAULT_PLATFORMS,
   rows: [],
+  payouts: [],
   layout: defaultLayout(DEFAULT_PLATFORMS),
+  usdPhpRate: DEFAULT_USD_PHP_RATE,
 });
 
 function load(): PersistedState {
@@ -109,7 +122,12 @@ function load(): PersistedState {
     return {
       platforms,
       rows: parsed.rows ?? [],
+      payouts: parsed.payouts ?? [],
       layout: { ...defaultLayout(platforms), ...(parsed.layout ?? {}) },
+      usdPhpRate:
+        typeof parsed.usdPhpRate === "number" && parsed.usdPhpRate > 0
+          ? parsed.usdPhpRate
+          : DEFAULT_USD_PHP_RATE,
     };
   } catch {
     return emptyState();
@@ -174,6 +192,9 @@ export function deriveRow(row: EntryRow): DerivedRow {
 export const fmtUsd = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
 
+export const fmtPhp = (n: number) =>
+  `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
 export const fmtNum = (n: number) => n.toLocaleString("en-US");
 
 export const fmtHours = (minutes: number) =>
@@ -183,11 +204,19 @@ interface StoreValue {
   ready: boolean;
   platforms: Platform[];
   rows: EntryRow[];
+  payouts: Payout[];
   layout: Record<string, PanelLayout>;
+  usdPhpRate: number;
   workingDate: string;
   setWorkingDate: (d: string) => void;
   rowsFor: (platformId: string, date?: string) => DerivedRow[];
   summaryFor: (platformId: string, date: string) => PlatformSummary;
+  /** Opening balance + all recorded earnings - all recorded payouts. */
+  currentTotalFor: (platformId: string) => number;
+  /** Latest recorded follower count for the platform, or null when unknown. */
+  currentFollowersFor: (platformId: string) => number | null;
+  payoutsFor: (platformId: string) => Payout[];
+  addPayout: (payout: { platformId: string; date: string; amountUsd: number; note?: string }) => void;
   addRow: (row: Omit<EntryRow, "id" | "createdAt" | "updatedAt">) => void;
   updateRow: (id: string, patch: Partial<EntryRow>) => void;
   deleteRow: (id: string) => void;
@@ -263,16 +292,78 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
     [state.rows, state.platforms],
   );
 
+  const currentTotalFor = useCallback(
+    (platformId: string) => {
+      const platform = state.platforms.find((p) => p.id === platformId);
+      const earned = state.rows
+        .filter((r) => r.platformId === platformId)
+        .reduce((sum, r) => sum + deriveRow(r).usdValue, 0);
+      const paid = state.payouts
+        .filter((p) => p.platformId === platformId)
+        .reduce((sum, p) => sum + p.amountUsd, 0);
+      return (platform?.openingBalanceUsd ?? 0) + earned - paid;
+    },
+    [state.rows, state.payouts, state.platforms],
+  );
+
+  const currentFollowersFor = useCallback(
+    (platformId: string) => {
+      const rows = state.rows
+        .filter((r) => r.platformId === platformId)
+        .filter((r) => r.followersEnd !== null && r.followersEnd !== undefined)
+        .sort((a, b) =>
+          a.date === b.date ? a.createdAt.localeCompare(b.createdAt) : a.date.localeCompare(b.date),
+        );
+      const last = rows[rows.length - 1];
+      return last ? (last.followersEnd ?? null) : null;
+    },
+    [state.rows],
+  );
+
+  const payoutsFor = useCallback(
+    (platformId: string) =>
+      state.payouts
+        .filter((p) => p.platformId === platformId)
+        .sort((a, b) => (a.date < b.date ? 1 : -1)),
+    [state.payouts],
+  );
+
   const value = useMemo<StoreValue>(
     () => ({
       ready,
       platforms: [...state.platforms].sort((a, b) => a.slot - b.slot),
       rows: state.rows,
+      payouts: state.payouts,
       layout: state.layout,
+      usdPhpRate: state.usdPhpRate,
       workingDate,
       setWorkingDate,
       rowsFor,
       summaryFor,
+      currentTotalFor,
+      currentFollowersFor,
+      payoutsFor,
+      addPayout: ({ platformId, date, amountUsd, note }) =>
+        setState((s) => {
+          const platform = s.platforms.find((p) => p.id === platformId);
+          if (!platform || !Number.isFinite(amountUsd) || amountUsd <= 0) return s;
+          return {
+            ...s,
+            payouts: [
+              ...s.payouts,
+              {
+                id: `payout-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                platformId,
+                date,
+                amountUsd,
+                destination: platform.payoutDestination ?? "Unassigned",
+                usdPhpRateAtEntry: s.usdPhpRate,
+                note: note ?? "",
+                createdAt: new Date().toISOString(),
+              },
+            ],
+          };
+        }),
       addRow: (row) =>
         setState((s) => ({
           ...s,
@@ -315,7 +406,7 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
           ),
         })),
     }),
-    [ready, state, workingDate, rowsFor, summaryFor],
+    [ready, state, workingDate, rowsFor, summaryFor, currentTotalFor, currentFollowersFor, payoutsFor],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
