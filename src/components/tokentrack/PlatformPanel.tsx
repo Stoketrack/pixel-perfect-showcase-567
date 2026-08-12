@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Minus, GripVertical, Maximize2, Plus } from "lucide-react";
+import { Minus, GripVertical, Maximize2, Plus, Banknote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   STATUS_LABEL,
-  fmtHours,
   fmtNum,
+  fmtPhp,
   fmtUsd,
   useTokenTrack,
   type PanelLayout,
@@ -25,6 +25,7 @@ interface Props {
   layout: PanelLayout;
   bounds: { width: number; height: number };
   onAddRow: () => void;
+  onAddPayout: () => void;
   onOpenDetail: () => void;
   onFocus: () => void;
   zIndex: number;
@@ -35,15 +36,18 @@ export function PlatformPanel({
   layout,
   bounds,
   onAddRow,
+  onAddPayout,
   onOpenDetail,
   onFocus,
   zIndex,
 }: Props) {
-  const { workingDate, summaryFor, setPanel } = useTokenTrack();
-  const summary = summaryFor(platform.id, workingDate);
+  const { currentTotalFor, currentFollowersFor, usdPhpRate, setPanel } = useTokenTrack();
+  const currentTotal = currentTotalFor(platform.id);
+  const followers = currentFollowersFor(platform.id);
   const ref = useRef<HTMLElement | null>(null);
   const [dragging, setDragging] = useState(false);
   const [pos, setPos] = useState({ x: layout.x, y: layout.y });
+
 
   useEffect(() => {
     if (!dragging) setPos({ x: layout.x, y: layout.y });
