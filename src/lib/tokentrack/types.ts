@@ -29,6 +29,8 @@ export interface EntryRow {
   /** Session start/end as HH:mm (24h). Optional for legacy rows. */
   startTime?: string | null;
   endTime?: string | null;
+  /** Derived from start time (Morning/Afternoon/Evening/Night). Never entered manually. */
+  timeOfDay?: string | null;
   /** Number of rooms/shows in the session. */
   roomCount?: number | null;
   /** Follower snapshots — never overwritten, kept per session. */

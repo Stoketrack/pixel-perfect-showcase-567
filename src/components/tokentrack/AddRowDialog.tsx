@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, X } from "lucide-react";
-import { durationMinutes, fmtHours, fmtUsd, useTokenTrack } from "@/lib/tokentrack/store";
+import { durationMinutes, fmtHours, fmtUsd, timeOfDayFrom, useTokenTrack } from "@/lib/tokentrack/store";
 import type { Platform } from "@/lib/tokentrack/types";
 
 interface Props {
@@ -72,6 +72,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
 
   // Live preview of the values that will be derived from this row.
   const previewMinutes = durationMinutes(startTime || null, endTime || null);
+  const previewTimeOfDay = timeOfDayFrom(startTime || null);
   const previewUsd = num(usd) ?? (num(tokens) !== null && platform.tokenValueUsd
     ? (num(tokens) as number) * platform.tokenValueUsd
     : null);
@@ -96,6 +97,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
       date: rowDate,
       startTime: startTime || null,
       endTime: endTime || null,
+      timeOfDay: previewTimeOfDay,
       roomCount: num(roomCount),
       followersStart: num(followersStart),
       followersEnd: num(followersEnd),
@@ -146,9 +148,9 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
         </header>
 
         <div className="p-3">
-          <div className="grid grid-cols-12 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {/* Row 1 */}
-            <div className="col-span-3">
+            <div>
               <label className="label-micro" htmlFor="row-date">
                 Date
               </label>
@@ -161,7 +163,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="col-span-2">
+            <div>
               <label className="label-micro" htmlFor="row-start">
                 Start time
               </label>
@@ -174,7 +176,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="col-span-2">
+            <div>
               <label className="label-micro" htmlFor="row-end">
                 End time
               </label>
@@ -187,21 +189,8 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="col-span-2">
-              <label className="label-micro" htmlFor="row-rooms">
-                Room count
-              </label>
-              <input
-                id="row-rooms"
-                inputMode="numeric"
-                value={roomCount}
-                onChange={(e) => setRoomCount(e.target.value)}
-                placeholder="0"
-                className={compactField}
-              />
-            </div>
-
-            <div className="col-span-3">
+            {/* Row 2 */}
+            <div>
               <label className="label-micro" htmlFor="row-fol-start">
                 Followers at Start
               </label>
@@ -215,8 +204,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            {/* Row 2 */}
-            <div className="col-span-3">
+            <div>
               <label className="label-micro" htmlFor="row-fol-end">
                 Followers at End
               </label>
@@ -230,7 +218,22 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="col-span-2">
+            <div>
+              <label className="label-micro" htmlFor="row-rooms">
+                Room count
+              </label>
+              <input
+                id="row-rooms"
+                inputMode="numeric"
+                value={roomCount}
+                onChange={(e) => setRoomCount(e.target.value)}
+                placeholder="0"
+                className={compactField}
+              />
+            </div>
+
+            {/* Row 3 */}
+            <div>
               <label className="label-micro" htmlFor="row-tokens">
                 Tokens
               </label>
@@ -244,7 +247,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="col-span-2">
+            <div>
               <label className="label-micro" htmlFor="row-usd">
                 USD Earned
               </label>
@@ -258,6 +261,21 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
+            <div>
+              <label className="label-micro" htmlFor="row-tod">
+                Time of Day
+              </label>
+              <input
+                id="row-tod"
+                readOnly
+                tabIndex={-1}
+                value={previewTimeOfDay ?? "—"}
+                aria-label="Time of day, derived from start time"
+                className={`${compactField} text-muted-foreground`}
+              />
+            </div>
+
+            {/* Notes spans full width */}
             <div className="col-span-3">
               <div className="flex items-center justify-between">
                 <label className="label-micro" htmlFor="row-note">
@@ -286,15 +304,17 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               />
             </div>
 
-            <div className="col-span-2 flex items-end">
+            {/* Row 4 — save */}
+            <div className="col-span-3 flex justify-end">
               <button
                 type="submit"
-                className="w-full rounded-md bg-primary px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-primary-foreground hover:opacity-90 h-8"
+                className="h-8 rounded-md bg-primary px-6 text-xs font-bold uppercase tracking-wider text-primary-foreground hover:opacity-90"
               >
                 Save Row
               </button>
             </div>
           </div>
+
 
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-border bg-console/60 px-3 py-1.5 text-xs">
             <div className="flex items-center gap-1.5">
