@@ -97,6 +97,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
       date: rowDate,
       startTime: startTime || null,
       endTime: endTime || null,
+      timeOfDay: previewTimeOfDay,
       roomCount: num(roomCount),
       followersStart: num(followersStart),
       followersEnd: num(followersEnd),
