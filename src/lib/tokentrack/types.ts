@@ -17,6 +17,24 @@ export interface Platform {
   openingBalanceUsd: number;
   openingDate: string;
   accent: string;
+  /** Configured payout destination (set in Settings), e.g. "Coins.ph" or "Wise". */
+  payoutDestination?: string | null;
+}
+
+/** A payout withdrawn from a platform balance. Stored separately from earnings rows. */
+export interface Payout {
+  id: string;
+  platformId: string;
+  /** ISO date (yyyy-mm-dd) of the payout. */
+  date: string;
+  /** Positive USD amount withdrawn. Never stores currency symbols. */
+  amountUsd: number;
+  /** Destination captured at payout time so history is never rewritten. */
+  destination: string;
+  /** USD/PHP rate captured at payout time. */
+  usdPhpRateAtEntry: number | null;
+  note: string;
+  createdAt: string;
 }
 
 export type ValueSource = "actual" | "calculated" | "estimated";
