@@ -128,6 +128,17 @@ export function durationMinutes(start?: string | null, end?: string | null): num
   return diff < 0 ? diff + 1440 : diff;
 }
 
+/** Time-of-day band derived from a HH:mm start time. */
+export function timeOfDayFrom(start?: string | null): string | null {
+  if (!start) return null;
+  const [h = NaN] = start.split(":").map(Number);
+  if (Number.isNaN(h)) return null;
+  if (h < 6) return "Night";
+  if (h < 12) return "Morning";
+  if (h < 18) return "Afternoon";
+  return "Evening";
+}
+
 /** Single source of truth for turning a stored row into a USD figure. */
 export function deriveRow(row: EntryRow): DerivedRow {
   const minutesValue = durationMinutes(row.startTime, row.endTime) ?? row.minutes ?? 0;
