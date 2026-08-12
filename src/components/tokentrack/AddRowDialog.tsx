@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, X } from "lucide-react";
-import { durationMinutes, fmtHours, fmtUsd, useTokenTrack } from "@/lib/tokentrack/store";
+import { durationMinutes, fmtHours, fmtUsd, timeOfDayFrom, useTokenTrack } from "@/lib/tokentrack/store";
 import type { Platform } from "@/lib/tokentrack/types";
 
 interface Props {
@@ -72,6 +72,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
 
   // Live preview of the values that will be derived from this row.
   const previewMinutes = durationMinutes(startTime || null, endTime || null);
+  const previewTimeOfDay = timeOfDayFrom(startTime || null);
   const previewUsd = num(usd) ?? (num(tokens) !== null && platform.tokenValueUsd
     ? (num(tokens) as number) * platform.tokenValueUsd
     : null);
