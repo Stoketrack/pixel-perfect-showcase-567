@@ -1,4 +1,4 @@
-export type PlatformStatus = "active" | "testing" | "paused" | "retired";
+export type PlatformStatus = "active" | "testing" | "inactive";
 
 /** How a platform reports its numbers. Drives which inputs are shown. */
 export type InputMode = "tokens" | "usd" | "tokens_and_usd";
@@ -6,12 +6,15 @@ export type InputMode = "tokens" | "usd" | "tokens_and_usd";
 export interface Platform {
   /** Stable platform identity — never reused when a slot is reassigned. */
   id: string;
+  /** Underlying platform identity (e.g. "Chaturbate"). Configured in Settings. */
   name: string;
+  /** Short editable label shown on the dashboard (e.g. "CB"). */
+  displayName: string;
   status: PlatformStatus;
-  /** Dashboard slot 1..6. Slot identity is separate from platform identity. */
+  /** Dashboard display/order position 1..6. Separate from platform identity. */
   slot: number;
   inputMode: InputMode;
-  /** USD per token, used only when inputMode includes tokens. */
+  /** USD per token — always platform-specific, never a global rate. */
   tokenValueUsd: number | null;
   /** Verified opening balance in USD as of the opening date. */
   openingBalanceUsd: number;
@@ -19,6 +22,8 @@ export interface Platform {
   accent: string;
   /** Configured payout destination (set in Settings), e.g. "Coins.ph" or "Wise". */
   payoutDestination?: string | null;
+  /** Free-text payout information: account reference, schedule, minimum, etc. */
+  payoutInfo?: string | null;
 }
 
 /** A payout withdrawn from a platform balance. Stored separately from earnings rows. */
@@ -63,9 +68,25 @@ export interface EntryRow {
   /** Rate captured at entry time so history is never rewritten. */
   tokenValueUsdAtEntry: number | null;
   note: string;
+  /** Where the record came from. Manual rows are provisional until verified. */
+  origin: RecordOrigin;
+  /** True only when the figures came from (or were confirmed by) platform data. */
+  verified: boolean;
+  /**
+   * Stable natural key for future imports: `${platformId}|${date}|${startTime ?? "-"}`
+   * (or the platform's own record id). Used to match, dedupe and enrich —
+   * never to delete history.
+   */
+  importKey?: string | null;
+  /** Which import batch/file last enriched this row. */
+  importBatchId?: string | null;
+  importedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+/** Provenance of an entry row. */
+export type RecordOrigin = "manual" | "imported";
 
 export interface DerivedRow extends EntryRow {
   usdValue: number;

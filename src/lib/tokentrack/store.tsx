@@ -8,6 +8,7 @@ export const DEFAULT_PLATFORMS: Platform[] = [
   {
     id: "pf-chaturbate",
     name: "Chaturbate",
+    displayName: "CB",
     status: "active",
     slot: 1,
     inputMode: "tokens_and_usd",
@@ -16,47 +17,56 @@ export const DEFAULT_PLATFORMS: Platform[] = [
     openingDate: OPENING_DATE,
     accent: "var(--color-accent)",
     payoutDestination: "Coins.ph",
-  },
-  {
-    id: "pf-stripchat",
-    name: "Stripchat",
-    status: "active",
-    slot: 2,
-    inputMode: "tokens_and_usd",
-    tokenValueUsd: 0.05,
-    openingBalanceUsd: 0,
-    openingDate: OPENING_DATE,
-    accent: "var(--color-accent)",
-    payoutDestination: "Wise",
+    payoutInfo: "",
   },
   {
     id: "pf-cam4",
     name: "Cam4",
+    displayName: "C4",
     status: "active",
-    slot: 3,
+    slot: 2,
     inputMode: "tokens_and_usd",
     tokenValueUsd: 0.1,
     openingBalanceUsd: 0,
     openingDate: OPENING_DATE,
     accent: "var(--color-accent)",
     payoutDestination: "Coins.ph",
+    payoutInfo: "",
   },
   {
     id: "pf-bongacams",
     name: "BongaCams",
+    displayName: "BC",
     status: "active",
-    slot: 4,
-    inputMode: "usd",
-    tokenValueUsd: null,
+    slot: 3,
+    inputMode: "tokens_and_usd",
+    // Observed effective rate: 1,324 tokens = $27.539
+    tokenValueUsd: 0.0208,
     openingBalanceUsd: 0,
     openingDate: OPENING_DATE,
     accent: "var(--color-accent)",
     payoutDestination: "Wise",
+    payoutInfo: "",
+  },
+  {
+    id: "pf-stripchat",
+    name: "Stripchat",
+    displayName: "SC",
+    status: "active",
+    slot: 4,
+    inputMode: "tokens_and_usd",
+    tokenValueUsd: 0.05,
+    openingBalanceUsd: 0,
+    openingDate: OPENING_DATE,
+    accent: "var(--color-accent)",
+    payoutDestination: "Wise",
+    payoutInfo: "",
   },
   {
     id: "pf-camsoda",
     name: "CamSoda",
-    status: "testing",
+    displayName: "CS",
+    status: "active",
     slot: 5,
     inputMode: "tokens_and_usd",
     tokenValueUsd: 0.05,
@@ -64,18 +74,21 @@ export const DEFAULT_PLATFORMS: Platform[] = [
     openingDate: OPENING_DATE,
     accent: "var(--color-accent)",
     payoutDestination: "Coins.ph",
+    payoutInfo: "",
   },
   {
     id: "pf-slot6",
     name: "Open Slot",
-    status: "paused",
+    displayName: "—",
+    status: "inactive",
     slot: 6,
-    inputMode: "usd",
+    inputMode: "tokens_and_usd",
     tokenValueUsd: null,
     openingBalanceUsd: 0,
     openingDate: OPENING_DATE,
     accent: "var(--color-accent)",
-    payoutDestination: "Coins.ph",
+    payoutDestination: "",
+    payoutInfo: "",
   },
 ];
 
@@ -90,11 +103,11 @@ interface PersistedState {
   rows: EntryRow[];
   payouts: Payout[];
   layout: Record<string, PanelLayout>;
-  usdPhpRate: number;
 }
 
-/** Application-wide USD to PHP rate (configurable later in Settings). */
-export const DEFAULT_USD_PHP_RATE = 58.5;
+/** Fallback used only until the live USD/PHP rate arrives. Never user-editable. */
+export const FALLBACK_USD_PHP_RATE = 58.5;
+const RATE_CACHE_KEY = "tokentrack.fx.usdphp";
 
 const defaultLayout = (platforms: Platform[]): Record<string, PanelLayout> => {
   const out: Record<string, PanelLayout> = {};
@@ -109,8 +122,35 @@ const emptyState = (): PersistedState => ({
   rows: [],
   payouts: [],
   layout: defaultLayout(DEFAULT_PLATFORMS),
-  usdPhpRate: DEFAULT_USD_PHP_RATE,
 });
+
+/** Bring stored records forward without ever discarding history. */
+function migratePlatform(p: Platform): Platform {
+  const legacy = p.status as string;
+  const status: Platform["status"] =
+    legacy === "active" || legacy === "testing" ? legacy : "inactive";
+  const fallback = DEFAULT_PLATFORMS.find((d) => d.id === p.id);
+  return {
+    ...p,
+    status,
+    displayName: p.displayName?.trim() ? p.displayName : (fallback?.displayName ?? p.name),
+    payoutInfo: p.payoutInfo ?? "",
+    payoutDestination: p.payoutDestination ?? "",
+  };
+}
+
+export function rowImportKey(row: Pick<EntryRow, "platformId" | "date" | "startTime">) {
+  return `${row.platformId}|${row.date}|${row.startTime ?? "-"}`;
+}
+
+function migrateRow(r: EntryRow): EntryRow {
+  return {
+    ...r,
+    origin: r.origin ?? "manual",
+    verified: r.verified ?? false,
+    importKey: r.importKey ?? rowImportKey(r),
+  };
+}
 
 function load(): PersistedState {
   if (typeof window === "undefined") return emptyState();
@@ -118,20 +158,37 @@ function load(): PersistedState {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyState();
     const parsed = JSON.parse(raw) as Partial<PersistedState>;
-    const platforms = parsed.platforms?.length ? parsed.platforms : DEFAULT_PLATFORMS;
+    const platforms = (parsed.platforms?.length ? parsed.platforms : DEFAULT_PLATFORMS).map(
+      migratePlatform,
+    );
     return {
       platforms,
-      rows: parsed.rows ?? [],
+      rows: (parsed.rows ?? []).map(migrateRow),
       payouts: parsed.payouts ?? [],
       layout: { ...defaultLayout(platforms), ...(parsed.layout ?? {}) },
-      usdPhpRate:
-        typeof parsed.usdPhpRate === "number" && parsed.usdPhpRate > 0
-          ? parsed.usdPhpRate
-          : DEFAULT_USD_PHP_RATE,
     };
   } catch {
     return emptyState();
   }
+}
+
+/** Live USD→PHP rate, fetched automatically. Never entered by the user. */
+async function fetchUsdPhpRate(): Promise<number | null> {
+  const sources = [
+    { url: "https://open.er-api.com/v6/latest/USD", pick: (j: any) => j?.rates?.PHP },
+    { url: "https://api.frankfurter.app/latest?from=USD&to=PHP", pick: (j: any) => j?.rates?.PHP },
+  ];
+  for (const s of sources) {
+    try {
+      const res = await fetch(s.url);
+      if (!res.ok) continue;
+      const rate = s.pick(await res.json());
+      if (typeof rate === "number" && rate > 0) return rate;
+    } catch {
+      /* try the next source */
+    }
+  }
+  return null;
 }
 
 export const todayISO = () => new Date().toISOString().slice(0, 10);
