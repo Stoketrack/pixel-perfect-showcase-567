@@ -4,14 +4,8 @@ import { ChevronLeft, ChevronRight, LayoutGrid, RotateCcw } from "lucide-react";
 import { PlatformPanel, PANEL_WIDTH } from "@/components/tokentrack/PlatformPanel";
 import { AddRowDialog } from "@/components/tokentrack/AddRowDialog";
 import { PlatformDetail } from "@/components/tokentrack/PlatformDetail";
-import {
-  TokenTrackProvider,
-  fmtHours,
-  fmtNum,
-  fmtUsd,
-  todayISO,
-  useTokenTrack,
-} from "@/lib/tokentrack/store";
+import { AddPayoutDialog } from "@/components/tokentrack/AddPayoutDialog";
+import { TokenTrackProvider, todayISO, useTokenTrack } from "@/lib/tokentrack/store";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -48,9 +42,10 @@ function shiftDate(date: string, days: number) {
 }
 
 function Dashboard() {
-  const { platforms, layout, workingDate, setWorkingDate, summaryFor, setPanel, restoreAll, ready } =
+  const { platforms, layout, workingDate, setWorkingDate, setPanel, restoreAll, ready } =
     useTokenTrack();
   const [addFor, setAddFor] = useState<string | null>(null);
+  const [payoutFor, setPayoutFor] = useState<string | null>(null);
   const [detailFor, setDetailFor] = useState<string | null>(null);
   const [order, setOrder] = useState<string[]>([]);
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -66,22 +61,10 @@ function Dashboard() {
     return () => ro.disconnect();
   }, [detailFor]);
 
-  const totals = platforms.reduce(
-    (acc, p) => {
-      const s = summaryFor(p.id, workingDate);
-      return {
-        usd: acc.usd + s.usdForDate,
-        tokens: acc.tokens + (s.tokens ?? 0),
-        followers: acc.followers + s.followers,
-        minutes: acc.minutes + s.minutes,
-      };
-    },
-    { usd: 0, tokens: 0, followers: 0, minutes: 0 },
-  );
-
   const minimised = platforms.filter((p) => layout[p.id]?.minimised);
   const visible = platforms.filter((p) => !layout[p.id]?.minimised);
   const addPlatform = platforms.find((p) => p.id === addFor);
+  const payoutPlatform = platforms.find((p) => p.id === payoutFor);
   const detailPlatform = platforms.find((p) => p.id === detailFor);
   const zFor = (id: string) => 10 + Math.max(order.indexOf(id), 0);
 
@@ -154,13 +137,6 @@ function Dashboard() {
         </div>
       </nav>
 
-      <div className="flex shrink-0 items-center gap-8 overflow-x-auto border-b border-border bg-panel/50 px-6 py-2">
-        <Stat label="Earnings · selected date" value={fmtUsd(totals.usd)} />
-        <Stat label="Tokens · selected date" value={fmtNum(totals.tokens)} accent />
-        <Stat label="Follower delta" value={`+${fmtNum(totals.followers)}`} />
-        <Stat label="Hours" value={fmtHours(totals.minutes)} />
-      </div>
-
       <div className="flex min-h-0 flex-1">
         <div ref={canvasRef} className="relative min-w-0 flex-1 overflow-auto p-6">
           {ready &&
@@ -176,6 +152,7 @@ function Dashboard() {
                 zIndex={zFor(p.id)}
                 onFocus={() => focus(p.id)}
                 onAddRow={() => setAddFor(p.id)}
+                onAddPayout={() => setPayoutFor(p.id)}
                 onOpenDetail={() => setDetailFor(p.id)}
               />
             ))}
@@ -223,15 +200,15 @@ function Dashboard() {
       {addPlatform && (
         <AddRowDialog platform={addPlatform} date={workingDate} onClose={() => setAddFor(null)} />
       )}
+
+      {payoutPlatform && (
+        <AddPayoutDialog
+          platform={payoutPlatform}
+          date={workingDate}
+          onClose={() => setPayoutFor(null)}
+        />
+      )}
     </div>
   );
 }
 
-function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className="shrink-0">
-      <p className="label-micro">{label}</p>
-      <p className={`numeric text-lg font-semibold ${accent ? "text-token" : ""}`}>{value}</p>
-    </div>
-  );
-}
