@@ -1,4 +1,4 @@
-export type PlatformStatus = "active" | "testing" | "paused" | "retired";
+export type PlatformStatus = "active" | "testing" | "inactive";
 
 /** How a platform reports its numbers. Drives which inputs are shown. */
 export type InputMode = "tokens" | "usd" | "tokens_and_usd";
@@ -6,12 +6,15 @@ export type InputMode = "tokens" | "usd" | "tokens_and_usd";
 export interface Platform {
   /** Stable platform identity — never reused when a slot is reassigned. */
   id: string;
+  /** Underlying platform identity (e.g. "Chaturbate"). Configured in Settings. */
   name: string;
+  /** Short editable label shown on the dashboard (e.g. "CB"). */
+  displayName: string;
   status: PlatformStatus;
-  /** Dashboard slot 1..6. Slot identity is separate from platform identity. */
+  /** Dashboard display/order position 1..6. Separate from platform identity. */
   slot: number;
   inputMode: InputMode;
-  /** USD per token, used only when inputMode includes tokens. */
+  /** USD per token — always platform-specific, never a global rate. */
   tokenValueUsd: number | null;
   /** Verified opening balance in USD as of the opening date. */
   openingBalanceUsd: number;
@@ -19,6 +22,8 @@ export interface Platform {
   accent: string;
   /** Configured payout destination (set in Settings), e.g. "Coins.ph" or "Wise". */
   payoutDestination?: string | null;
+  /** Free-text payout information: account reference, schedule, minimum, etc. */
+  payoutInfo?: string | null;
 }
 
 /** A payout withdrawn from a platform balance. Stored separately from earnings rows. */
