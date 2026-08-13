@@ -135,57 +135,45 @@ export function PlatformPanel({
 
       <div className={cn("space-y-4 p-4", dimmed && "opacity-60")}>
         <div>
-          <p className="label-micro">Tokens · selected date</p>
-          <p className="numeric text-4xl font-semibold leading-none text-token">
-            {summary.tokens === null ? "—" : fmtNum(summary.tokens)}
+          <p className="label-micro">Current total</p>
+          <p className="numeric text-4xl font-semibold leading-none">{fmtUsd(currentTotal)}</p>
+          <p className="numeric mt-1 text-lg font-semibold leading-none text-token">
+            {fmtPhp(currentTotal * usdPhpRate)}
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            {summary.tokens === null
-              ? platform.inputMode === "usd"
-                ? "No reliable token data for this platform"
-                : "No tokens recorded"
-              : `Actual · ${platform.tokenValueUsd ? `$${platform.tokenValueUsd.toFixed(3)}/token` : "no rate set"}`}
+            Unpaid balance · @ {usdPhpRate.toFixed(2)} PHP/USD
           </p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 border-t border-border pt-3">
-          <div>
-            <p className="label-micro">Earnings</p>
-            <p className="numeric text-lg">{fmtUsd(summary.usdForDate)}</p>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              {summary.usdSource === "none" ? "no data" : summary.usdSource}
-            </p>
-          </div>
-          <div>
-            <p className="label-micro">Current total</p>
-            <p className="numeric text-lg">{fmtUsd(summary.runningTotalUsd)}</p>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              incl. opening balance
-            </p>
-          </div>
         </div>
 
         <div className="flex items-center justify-between rounded-lg border border-border bg-console/60 px-3 py-2">
           <div>
             <p className="label-micro">Followers</p>
-            <p className="numeric text-sm">
-              {summary.followers >= 0 ? `+${fmtNum(summary.followers)}` : fmtNum(summary.followers)}
-            </p>
+            <p className="numeric text-sm">{followers === null ? "—" : fmtNum(followers)}</p>
           </div>
           <div className="text-right">
-            <p className="label-micro">Hours</p>
-            <p className="numeric text-sm">{fmtHours(summary.minutes)}</p>
+            <p className="label-micro">Payout to</p>
+            <p className="text-sm">{platform.payoutDestination ?? "Unassigned"}</p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onAddRow}
-          className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border py-2.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:border-ring hover:text-foreground"
-        >
-          <Plus className="size-3.5" /> Add new row · {platform.name}
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={onAddRow}
+            className="flex items-center justify-center gap-1.5 rounded-md border border-dashed border-border py-2.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:border-ring hover:text-foreground"
+          >
+            <Plus className="size-3.5" /> Add new row
+          </button>
+          <button
+            type="button"
+            onClick={onAddPayout}
+            className="flex items-center justify-center gap-1.5 rounded-md border border-border py-2.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:border-ring hover:text-foreground"
+          >
+            <Banknote className="size-3.5" /> Add payout
+          </button>
+        </div>
       </div>
+
     </article>
   );
 }
