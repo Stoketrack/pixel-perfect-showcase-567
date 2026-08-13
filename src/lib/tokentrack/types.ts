@@ -68,9 +68,25 @@ export interface EntryRow {
   /** Rate captured at entry time so history is never rewritten. */
   tokenValueUsdAtEntry: number | null;
   note: string;
+  /** Where the record came from. Manual rows are provisional until verified. */
+  origin: RecordOrigin;
+  /** True only when the figures came from (or were confirmed by) platform data. */
+  verified: boolean;
+  /**
+   * Stable natural key for future imports: `${platformId}|${date}|${startTime ?? "-"}`
+   * (or the platform's own record id). Used to match, dedupe and enrich —
+   * never to delete history.
+   */
+  importKey?: string | null;
+  /** Which import batch/file last enriched this row. */
+  importBatchId?: string | null;
+  importedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+/** Provenance of an entry row. */
+export type RecordOrigin = "manual" | "imported";
 
 export interface DerivedRow extends EntryRow {
   usdValue: number;
