@@ -103,11 +103,11 @@ interface PersistedState {
   rows: EntryRow[];
   payouts: Payout[];
   layout: Record<string, PanelLayout>;
-  usdPhpRate: number;
 }
 
-/** Application-wide USD to PHP rate (configurable later in Settings). */
-export const DEFAULT_USD_PHP_RATE = 58.5;
+/** Fallback used only until the live USD/PHP rate arrives. Never user-editable. */
+export const FALLBACK_USD_PHP_RATE = 58.5;
+const RATE_CACHE_KEY = "tokentrack.fx.usdphp";
 
 const defaultLayout = (platforms: Platform[]): Record<string, PanelLayout> => {
   const out: Record<string, PanelLayout> = {};
@@ -122,8 +122,35 @@ const emptyState = (): PersistedState => ({
   rows: [],
   payouts: [],
   layout: defaultLayout(DEFAULT_PLATFORMS),
-  usdPhpRate: DEFAULT_USD_PHP_RATE,
 });
+
+/** Bring stored records forward without ever discarding history. */
+function migratePlatform(p: Platform): Platform {
+  const legacy = p.status as string;
+  const status: Platform["status"] =
+    legacy === "active" || legacy === "testing" ? legacy : "inactive";
+  const fallback = DEFAULT_PLATFORMS.find((d) => d.id === p.id);
+  return {
+    ...p,
+    status,
+    displayName: p.displayName?.trim() ? p.displayName : (fallback?.displayName ?? p.name),
+    payoutInfo: p.payoutInfo ?? "",
+    payoutDestination: p.payoutDestination ?? "",
+  };
+}
+
+export function rowImportKey(row: Pick<EntryRow, "platformId" | "date" | "startTime">) {
+  return `${row.platformId}|${row.date}|${row.startTime ?? "-"}`;
+}
+
+function migrateRow(r: EntryRow): EntryRow {
+  return {
+    ...r,
+    origin: r.origin ?? "manual",
+    verified: r.verified ?? false,
+    importKey: r.importKey ?? rowImportKey(r),
+  };
+}
 
 function load(): PersistedState {
   if (typeof window === "undefined") return emptyState();
@@ -131,20 +158,37 @@ function load(): PersistedState {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyState();
     const parsed = JSON.parse(raw) as Partial<PersistedState>;
-    const platforms = parsed.platforms?.length ? parsed.platforms : DEFAULT_PLATFORMS;
+    const platforms = (parsed.platforms?.length ? parsed.platforms : DEFAULT_PLATFORMS).map(
+      migratePlatform,
+    );
     return {
       platforms,
-      rows: parsed.rows ?? [],
+      rows: (parsed.rows ?? []).map(migrateRow),
       payouts: parsed.payouts ?? [],
       layout: { ...defaultLayout(platforms), ...(parsed.layout ?? {}) },
-      usdPhpRate:
-        typeof parsed.usdPhpRate === "number" && parsed.usdPhpRate > 0
-          ? parsed.usdPhpRate
-          : DEFAULT_USD_PHP_RATE,
     };
   } catch {
     return emptyState();
   }
+}
+
+/** Live USD→PHP rate, fetched automatically. Never entered by the user. */
+async function fetchUsdPhpRate(): Promise<number | null> {
+  const sources = [
+    { url: "https://open.er-api.com/v6/latest/USD", pick: (j: any) => j?.rates?.PHP },
+    { url: "https://api.frankfurter.app/latest?from=USD&to=PHP", pick: (j: any) => j?.rates?.PHP },
+  ];
+  for (const s of sources) {
+    try {
+      const res = await fetch(s.url);
+      if (!res.ok) continue;
+      const rate = s.pick(await res.json());
+      if (typeof rate === "number" && rate > 0) return rate;
+    } catch {
+      /* try the next source */
+    }
+  }
+  return null;
 }
 
 export const todayISO = () => new Date().toISOString().slice(0, 10);
