@@ -84,12 +84,15 @@ function Dashboard() {
             </span>
           </div>
           <div className="hidden items-center gap-1 rounded-md bg-panel p-1 lg:flex">
-            {NAV.map((item, i) => (
+            {NAV.map((item) => (
               <button
                 key={item}
                 type="button"
+                onClick={() =>
+                  (item === "Dashboard" || item === "Settings") && setView(item)
+                }
                 className={
-                  i === 0
+                  view === item
                     ? "rounded bg-secondary px-3 py-1 text-xs font-medium text-foreground"
                     : "rounded px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                 }
