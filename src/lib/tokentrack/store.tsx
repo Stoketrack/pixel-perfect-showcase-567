@@ -263,7 +263,10 @@ interface StoreValue {
   rows: EntryRow[];
   payouts: Payout[];
   layout: Record<string, PanelLayout>;
+  /** Live USD→PHP rate (auto-fetched, read-only). */
   usdPhpRate: number;
+  rateUpdatedAt: string | null;
+  rateIsLive: boolean;
   workingDate: string;
   setWorkingDate: (d: string) => void;
   rowsFor: (platformId: string, date?: string) => DerivedRow[];
