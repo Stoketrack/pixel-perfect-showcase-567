@@ -14,8 +14,7 @@ import type { Platform } from "@/lib/tokentrack/types";
 const STATUS_STYLES: Record<Platform["status"], string> = {
   active: "text-status-active border-status-active/30 bg-status-active/10",
   testing: "text-status-testing border-status-testing/30 bg-status-testing/10",
-  paused: "text-status-paused border-status-paused/30 bg-status-paused/10",
-  retired: "text-status-retired border-status-retired/30 bg-status-retired/10",
+  inactive: "text-status-retired border-status-retired/30 bg-status-retired/10",
 };
 
 const PANEL_WIDTH = 380;
