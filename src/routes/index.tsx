@@ -141,7 +141,13 @@ function Dashboard() {
         </div>
       </nav>
 
-      <div className="flex min-h-0 flex-1">
+      {view === "Settings" && (
+        <div className="min-h-0 flex-1 overflow-auto">
+          <PlatformSettings />
+        </div>
+      )}
+
+      <div className={view === "Settings" ? "hidden" : "flex min-h-0 flex-1"}>
         <div ref={canvasRef} className="relative min-w-0 flex-1 overflow-auto p-6">
           {ready &&
             visible.map((p) => (
