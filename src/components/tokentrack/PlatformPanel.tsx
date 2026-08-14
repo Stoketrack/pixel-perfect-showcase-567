@@ -141,9 +141,7 @@ export function PlatformPanel({
           <p className="numeric mt-1 text-lg font-semibold leading-none text-token">
             {fmtPhp(currentTotal * usdPhpRate)}
           </p>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Unpaid balance · @ {usdPhpRate.toFixed(2)} PHP/USD
-          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground">Unpaid balance</p>
         </div>
 
         <div className="flex items-center justify-between rounded-lg border border-border bg-console/60 px-3 py-2">
