@@ -431,7 +431,7 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
                 date,
                 amountUsd,
                 destination: platform.payoutDestination ?? "Unassigned",
-                usdPhpRateAtEntry: s.usdPhpRate,
+                usdPhpRateAtEntry: fx.rate,
                 note: note ?? "",
                 createdAt: new Date().toISOString(),
               },
