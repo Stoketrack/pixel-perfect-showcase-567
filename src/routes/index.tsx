@@ -5,6 +5,7 @@ import { PlatformPanel, PANEL_WIDTH } from "@/components/tokentrack/PlatformPane
 import { AddRowDialog } from "@/components/tokentrack/AddRowDialog";
 import { PlatformDetail } from "@/components/tokentrack/PlatformDetail";
 import { AddPayoutDialog } from "@/components/tokentrack/AddPayoutDialog";
+import { PlatformSettings } from "@/components/tokentrack/PlatformSettings";
 import { TokenTrackProvider, todayISO, useTokenTrack } from "@/lib/tokentrack/store";
 
 export const Route = createFileRoute("/")({
@@ -193,7 +194,7 @@ function Dashboard() {
                 onClick={() => setPanel(p.id, { minimised: false })}
                 className="shrink-0 rounded border border-border bg-panel px-3 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
               >
-                {p.name}
+                {p.displayName?.trim() || p.name}
               </button>
             ))
           )}
