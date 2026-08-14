@@ -44,6 +44,7 @@ function shiftDate(date: string, days: number) {
 function Dashboard() {
   const { platforms, layout, workingDate, setWorkingDate, setPanel, restoreAll, ready } =
     useTokenTrack();
+  const [view, setView] = useState<string>("Dashboard");
   const [addFor, setAddFor] = useState<string | null>(null);
   const [payoutFor, setPayoutFor] = useState<string | null>(null);
   const [detailFor, setDetailFor] = useState<string | null>(null);
