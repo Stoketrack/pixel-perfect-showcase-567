@@ -81,7 +81,7 @@ export function PlatformPanel({
     window.addEventListener("pointerup", up);
   };
 
-  const dimmed = platform.status === "paused" || platform.status === "retired";
+  const dimmed = platform.status === "inactive";
 
   return (
     <article
