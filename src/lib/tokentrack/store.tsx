@@ -277,7 +277,19 @@ interface StoreValue {
   currentFollowersFor: (platformId: string) => number | null;
   payoutsFor: (platformId: string) => Payout[];
   addPayout: (payout: { platformId: string; date: string; amountUsd: number; note?: string }) => void;
-  addRow: (row: Omit<EntryRow, "id" | "createdAt" | "updatedAt">) => void;
+  addRow: (
+    row: Omit<EntryRow, "id" | "createdAt" | "updatedAt" | "origin" | "verified"> &
+      Partial<Pick<EntryRow, "origin" | "verified">>,
+  ) => void;
+  /**
+   * Additive, duplicate-safe merge for future verified platform imports.
+   * Matches on importKey: enriches an existing provisional row, inserts when new,
+   * and never deletes or rewrites unrelated history.
+   */
+  importRows: (
+    incoming: Array<Partial<EntryRow> & Pick<EntryRow, "platformId" | "date">>,
+    batchId: string,
+  ) => { inserted: number; enriched: number; unchanged: number };
   updateRow: (id: string, patch: Partial<EntryRow>) => void;
   deleteRow: (id: string) => void;
   updatePlatform: (id: string, patch: Partial<Platform>) => void;
