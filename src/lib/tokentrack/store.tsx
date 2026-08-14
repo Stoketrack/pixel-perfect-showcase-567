@@ -130,12 +130,21 @@ function migratePlatform(p: Platform): Platform {
   const status: Platform["status"] =
     legacy === "active" || legacy === "testing" ? legacy : "inactive";
   const fallback = DEFAULT_PLATFORMS.find((d) => d.id === p.id);
+  const numOr = (v: unknown, alt: number) => (typeof v === "number" && Number.isFinite(v) ? v : alt);
   return {
     ...p,
     status,
     displayName: p.displayName?.trim() ? p.displayName : (fallback?.displayName ?? p.name),
     payoutInfo: p.payoutInfo ?? "",
     payoutDestination: p.payoutDestination ?? "",
+    slot: numOr(p.slot, fallback?.slot ?? 6),
+    openingBalanceUsd: numOr(p.openingBalanceUsd, fallback?.openingBalanceUsd ?? 0),
+    tokenValueUsd:
+      typeof p.tokenValueUsd === "number" && Number.isFinite(p.tokenValueUsd)
+        ? p.tokenValueUsd
+        : (fallback?.tokenValueUsd ?? null),
+    inputMode: p.inputMode ?? fallback?.inputMode ?? "tokens_and_usd",
+    accent: p.accent ?? fallback?.accent ?? "var(--color-accent)",
   };
 }
 
