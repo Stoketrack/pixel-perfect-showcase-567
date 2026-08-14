@@ -51,7 +51,9 @@ export function PlatformDetail({ platform, onClose }: Props) {
         <div className="bg-panel p-3">
           <p className="label-micro">Token rule</p>
           <p className="numeric text-sm text-token">
-            {platform.tokenValueUsd ? `$${platform.tokenValueUsd.toFixed(3)} / token` : "not applicable"}
+            {typeof platform.tokenValueUsd === "number" && Number.isFinite(platform.tokenValueUsd)
+              ? `$${platform.tokenValueUsd.toFixed(3)} / token`
+              : "not applicable"}
           </p>
           <p className="text-[10px] text-muted-foreground">
             {platform.inputMode === "usd" ? "USD is authoritative" : "stored per row at entry"}
