@@ -14,8 +14,7 @@ import type { Platform } from "@/lib/tokentrack/types";
 const STATUS_STYLES: Record<Platform["status"], string> = {
   active: "text-status-active border-status-active/30 bg-status-active/10",
   testing: "text-status-testing border-status-testing/30 bg-status-testing/10",
-  paused: "text-status-paused border-status-paused/30 bg-status-paused/10",
-  retired: "text-status-retired border-status-retired/30 bg-status-retired/10",
+  inactive: "text-status-retired border-status-retired/30 bg-status-retired/10",
 };
 
 const PANEL_WIDTH = 380;
@@ -82,7 +81,7 @@ export function PlatformPanel({
     window.addEventListener("pointerup", up);
   };
 
-  const dimmed = platform.status === "paused" || platform.status === "retired";
+  const dimmed = platform.status === "inactive";
 
   return (
     <article
@@ -103,7 +102,9 @@ export function PlatformPanel({
       >
         <div className="flex min-w-0 items-center gap-2">
           <GripVertical className="size-3.5 shrink-0 text-muted-foreground/60" aria-hidden />
-          <h2 className="truncate text-sm font-semibold tracking-tight">{platform.name}</h2>
+          <h2 className="truncate text-sm font-semibold tracking-tight">
+            {platform.displayName?.trim() || platform.name}
+          </h2>
           <span
             className={cn(
               "shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
@@ -140,9 +141,7 @@ export function PlatformPanel({
           <p className="numeric mt-1 text-lg font-semibold leading-none text-token">
             {fmtPhp(currentTotal * usdPhpRate)}
           </p>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Unpaid balance · @ {usdPhpRate.toFixed(2)} PHP/USD
-          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground">Unpaid balance</p>
         </div>
 
         <div className="flex items-center justify-between rounded-lg border border-border bg-console/60 px-3 py-2">

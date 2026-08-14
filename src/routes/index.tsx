@@ -5,6 +5,7 @@ import { PlatformPanel, PANEL_WIDTH } from "@/components/tokentrack/PlatformPane
 import { AddRowDialog } from "@/components/tokentrack/AddRowDialog";
 import { PlatformDetail } from "@/components/tokentrack/PlatformDetail";
 import { AddPayoutDialog } from "@/components/tokentrack/AddPayoutDialog";
+import { PlatformSettings } from "@/components/tokentrack/PlatformSettings";
 import { TokenTrackProvider, todayISO, useTokenTrack } from "@/lib/tokentrack/store";
 
 export const Route = createFileRoute("/")({
@@ -44,6 +45,7 @@ function shiftDate(date: string, days: number) {
 function Dashboard() {
   const { platforms, layout, workingDate, setWorkingDate, setPanel, restoreAll, ready } =
     useTokenTrack();
+  const [view, setView] = useState<string>("Dashboard");
   const [addFor, setAddFor] = useState<string | null>(null);
   const [payoutFor, setPayoutFor] = useState<string | null>(null);
   const [detailFor, setDetailFor] = useState<string | null>(null);
@@ -83,12 +85,15 @@ function Dashboard() {
             </span>
           </div>
           <div className="hidden items-center gap-1 rounded-md bg-panel p-1 lg:flex">
-            {NAV.map((item, i) => (
+            {NAV.map((item) => (
               <button
                 key={item}
                 type="button"
+                onClick={() =>
+                  (item === "Dashboard" || item === "Settings") && setView(item)
+                }
                 className={
-                  i === 0
+                  view === item
                     ? "rounded bg-secondary px-3 py-1 text-xs font-medium text-foreground"
                     : "rounded px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                 }
@@ -137,7 +142,13 @@ function Dashboard() {
         </div>
       </nav>
 
-      <div className="flex min-h-0 flex-1">
+      {view === "Settings" && (
+        <div className="min-h-0 flex-1 overflow-auto">
+          <PlatformSettings />
+        </div>
+      )}
+
+      <div className={view === "Settings" ? "hidden" : "flex min-h-0 flex-1"}>
         <div ref={canvasRef} className="relative min-w-0 flex-1 overflow-auto p-6">
           {ready &&
             visible.map((p) => (
@@ -183,7 +194,7 @@ function Dashboard() {
                 onClick={() => setPanel(p.id, { minimised: false })}
                 className="shrink-0 rounded border border-border bg-panel px-3 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
               >
-                {p.name}
+                {p.displayName?.trim() || p.name}
               </button>
             ))
           )}

@@ -263,7 +263,10 @@ interface StoreValue {
   rows: EntryRow[];
   payouts: Payout[];
   layout: Record<string, PanelLayout>;
+  /** Live USD→PHP rate (auto-fetched, read-only). */
   usdPhpRate: number;
+  rateUpdatedAt: string | null;
+  rateIsLive: boolean;
   workingDate: string;
   setWorkingDate: (d: string) => void;
   rowsFor: (platformId: string, date?: string) => DerivedRow[];
@@ -274,7 +277,19 @@ interface StoreValue {
   currentFollowersFor: (platformId: string) => number | null;
   payoutsFor: (platformId: string) => Payout[];
   addPayout: (payout: { platformId: string; date: string; amountUsd: number; note?: string }) => void;
-  addRow: (row: Omit<EntryRow, "id" | "createdAt" | "updatedAt">) => void;
+  addRow: (
+    row: Omit<EntryRow, "id" | "createdAt" | "updatedAt" | "origin" | "verified"> &
+      Partial<Pick<EntryRow, "origin" | "verified">>,
+  ) => void;
+  /**
+   * Additive, duplicate-safe merge for future verified platform imports.
+   * Matches on importKey: enriches an existing provisional row, inserts when new,
+   * and never deletes or rewrites unrelated history.
+   */
+  importRows: (
+    incoming: Array<Partial<EntryRow> & Pick<EntryRow, "platformId" | "date">>,
+    batchId: string,
+  ) => { inserted: number; enriched: number; unchanged: number };
   updateRow: (id: string, patch: Partial<EntryRow>) => void;
   deleteRow: (id: string) => void;
   updatePlatform: (id: string, patch: Partial<Platform>) => void;
@@ -297,10 +312,45 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PersistedState>(() => emptyState());
   const [ready, setReady] = useState(false);
   const [workingDate, setWorkingDate] = useState<string>(todayISO());
+  const [fx, setFx] = useState<{ rate: number; updatedAt: string | null; live: boolean }>({
+    rate: FALLBACK_USD_PHP_RATE,
+    updatedAt: null,
+    live: false,
+  });
 
   useEffect(() => {
     setState(load());
     setReady(true);
+    // Use the last known live rate immediately, then refresh from the source.
+    try {
+      const cached = window.localStorage.getItem(RATE_CACHE_KEY);
+      if (cached) {
+        const c = JSON.parse(cached) as { rate: number; updatedAt: string };
+        if (typeof c.rate === "number" && c.rate > 0) {
+          setFx({ rate: c.rate, updatedAt: c.updatedAt, live: true });
+        }
+      }
+    } catch {
+      /* no cached rate */
+    }
+    let cancelled = false;
+    const refresh = async () => {
+      const rate = await fetchUsdPhpRate();
+      if (cancelled || rate === null) return;
+      const updatedAt = new Date().toISOString();
+      setFx({ rate, updatedAt, live: true });
+      try {
+        window.localStorage.setItem(RATE_CACHE_KEY, JSON.stringify({ rate, updatedAt }));
+      } catch {
+        /* storage unavailable */
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(refresh, 60 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -392,7 +442,9 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
       rows: state.rows,
       payouts: state.payouts,
       layout: state.layout,
-      usdPhpRate: state.usdPhpRate,
+      usdPhpRate: fx.rate,
+      rateUpdatedAt: fx.updatedAt,
+      rateIsLive: fx.live,
       workingDate,
       setWorkingDate,
       rowsFor,
@@ -414,7 +466,7 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
                 date,
                 amountUsd,
                 destination: platform.payoutDestination ?? "Unassigned",
-                usdPhpRateAtEntry: s.usdPhpRate,
+                usdPhpRateAtEntry: fx.rate,
                 note: note ?? "",
                 createdAt: new Date().toISOString(),
               },
@@ -422,18 +474,82 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
           };
         }),
       addRow: (row) =>
-        setState((s) => ({
-          ...s,
-          rows: [
-            ...s.rows,
-            {
-              ...row,
-              id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            },
-          ],
-        })),
+        setState((s) => {
+          const now = new Date().toISOString();
+          const full: EntryRow = {
+            origin: "manual",
+            verified: false,
+            ...row,
+            importKey: rowImportKey(row),
+            id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            createdAt: now,
+            updatedAt: now,
+          };
+          return { ...s, rows: [...s.rows, full] };
+        }),
+      importRows: (incoming, batchId) => {
+        const stats = { inserted: 0, enriched: 0, unchanged: 0 };
+        setState((s) => {
+          const now = new Date().toISOString();
+          const rows = [...s.rows];
+          for (const item of incoming) {
+            const key = item.importKey ?? rowImportKey({ startTime: null, ...item });
+            const idx = rows.findIndex((r) => (r.importKey ?? rowImportKey(r)) === key);
+            if (idx === -1) {
+              rows.push({
+                startTime: null,
+                endTime: null,
+                timeOfDay: null,
+                roomCount: null,
+                followersStart: null,
+                followersEnd: null,
+                tokens: null,
+                usdActual: null,
+                followers: null,
+                minutes: null,
+                tokenValueUsdAtEntry: null,
+                note: "",
+                ...item,
+                origin: "imported",
+                verified: true,
+                importKey: key,
+                importBatchId: batchId,
+                importedAt: now,
+                id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                createdAt: now,
+                updatedAt: now,
+              } as EntryRow);
+              stats.inserted += 1;
+              continue;
+            }
+            const existing = rows[idx] as EntryRow;
+            // Re-running the same verified batch is a no-op.
+            if (existing.verified && existing.importBatchId === batchId) {
+              stats.unchanged += 1;
+              continue;
+            }
+            // Verified figures enrich the provisional record; history is kept, never deleted.
+            const merged: EntryRow = {
+              ...existing,
+              ...Object.fromEntries(
+                Object.entries(item).filter(([, v]) => v !== undefined && v !== null),
+              ),
+              id: existing.id,
+              createdAt: existing.createdAt,
+              origin: "imported",
+              verified: true,
+              importKey: key,
+              importBatchId: batchId,
+              importedAt: now,
+              updatedAt: now,
+            };
+            rows[idx] = merged;
+            stats.enriched += 1;
+          }
+          return { ...s, rows };
+        });
+        return stats;
+      },
       updateRow: (id, patch) =>
         setState((s) => ({
           ...s,
@@ -463,7 +579,17 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
           ),
         })),
     }),
-    [ready, state, workingDate, rowsFor, summaryFor, currentTotalFor, currentFollowersFor, payoutsFor],
+    [
+      ready,
+      state,
+      fx,
+      workingDate,
+      rowsFor,
+      summaryFor,
+      currentTotalFor,
+      currentFollowersFor,
+      payoutsFor,
+    ],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
@@ -478,6 +604,5 @@ export function useTokenTrack() {
 export const STATUS_LABEL: Record<PlatformStatus, string> = {
   active: "Active",
   testing: "Testing",
-  paused: "Paused",
-  retired: "Retired",
+  inactive: "Inactive",
 };
