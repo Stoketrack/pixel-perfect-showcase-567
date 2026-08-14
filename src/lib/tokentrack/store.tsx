@@ -604,6 +604,5 @@ export function useTokenTrack() {
 export const STATUS_LABEL: Record<PlatformStatus, string> = {
   active: "Active",
   testing: "Testing",
-  paused: "Paused",
-  retired: "Retired",
+  inactive: "Inactive",
 };
