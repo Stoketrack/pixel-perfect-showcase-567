@@ -255,16 +255,25 @@ export function deriveRow(row: EntryRow): DerivedRow {
 }
 
 
+/** Never let a missing/corrupt figure crash the UI — render 0 instead. */
+const safeNum = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? n : 0);
+
 export const fmtUsd = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
+  safeNum(n).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+  });
 
 export const fmtPhp = (n: number) =>
-  `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  `₱${safeNum(n).toLocaleString("en-PH", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
-export const fmtNum = (n: number) => n.toLocaleString("en-US");
+export const fmtNum = (n: number) => safeNum(n).toLocaleString("en-US");
 
-export const fmtHours = (minutes: number) =>
-  `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+export const fmtHours = (minutes: number) => {
+  const m = Math.max(0, Math.round(safeNum(minutes)));
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+};
 
 interface StoreValue {
   ready: boolean;
