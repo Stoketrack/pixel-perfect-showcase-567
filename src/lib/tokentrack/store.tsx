@@ -579,7 +579,17 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
           ),
         })),
     }),
-    [ready, state, workingDate, rowsFor, summaryFor, currentTotalFor, currentFollowersFor, payoutsFor],
+    [
+      ready,
+      state,
+      fx,
+      workingDate,
+      rowsFor,
+      summaryFor,
+      currentTotalFor,
+      currentFollowersFor,
+      payoutsFor,
+    ],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
