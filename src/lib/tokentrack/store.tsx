@@ -439,18 +439,82 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
           };
         }),
       addRow: (row) =>
-        setState((s) => ({
-          ...s,
-          rows: [
-            ...s.rows,
-            {
-              ...row,
-              id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            },
-          ],
-        })),
+        setState((s) => {
+          const now = new Date().toISOString();
+          const full: EntryRow = {
+            origin: "manual",
+            verified: false,
+            ...row,
+            importKey: rowImportKey(row),
+            id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            createdAt: now,
+            updatedAt: now,
+          };
+          return { ...s, rows: [...s.rows, full] };
+        }),
+      importRows: (incoming, batchId) => {
+        const stats = { inserted: 0, enriched: 0, unchanged: 0 };
+        setState((s) => {
+          const now = new Date().toISOString();
+          const rows = [...s.rows];
+          for (const item of incoming) {
+            const key = item.importKey ?? rowImportKey({ startTime: null, ...item });
+            const idx = rows.findIndex((r) => (r.importKey ?? rowImportKey(r)) === key);
+            if (idx === -1) {
+              rows.push({
+                startTime: null,
+                endTime: null,
+                timeOfDay: null,
+                roomCount: null,
+                followersStart: null,
+                followersEnd: null,
+                tokens: null,
+                usdActual: null,
+                followers: null,
+                minutes: null,
+                tokenValueUsdAtEntry: null,
+                note: "",
+                ...item,
+                origin: "imported",
+                verified: true,
+                importKey: key,
+                importBatchId: batchId,
+                importedAt: now,
+                id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                createdAt: now,
+                updatedAt: now,
+              } as EntryRow);
+              stats.inserted += 1;
+              continue;
+            }
+            const existing = rows[idx] as EntryRow;
+            // Re-running the same verified batch is a no-op.
+            if (existing.verified && existing.importBatchId === batchId) {
+              stats.unchanged += 1;
+              continue;
+            }
+            // Verified figures enrich the provisional record; history is kept, never deleted.
+            const merged: EntryRow = {
+              ...existing,
+              ...Object.fromEntries(
+                Object.entries(item).filter(([, v]) => v !== undefined && v !== null),
+              ),
+              id: existing.id,
+              createdAt: existing.createdAt,
+              origin: "imported",
+              verified: true,
+              importKey: key,
+              importBatchId: batchId,
+              importedAt: now,
+              updatedAt: now,
+            };
+            rows[idx] = merged;
+            stats.enriched += 1;
+          }
+          return { ...s, rows };
+        });
+        return stats;
+      },
       updateRow: (id, patch) =>
         setState((s) => ({
           ...s,
