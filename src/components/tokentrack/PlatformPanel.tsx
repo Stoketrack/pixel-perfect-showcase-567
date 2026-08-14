@@ -102,7 +102,9 @@ export function PlatformPanel({
       >
         <div className="flex min-w-0 items-center gap-2">
           <GripVertical className="size-3.5 shrink-0 text-muted-foreground/60" aria-hidden />
-          <h2 className="truncate text-sm font-semibold tracking-tight">{platform.name}</h2>
+          <h2 className="truncate text-sm font-semibold tracking-tight">
+            {platform.displayName?.trim() || platform.name}
+          </h2>
           <span
             className={cn(
               "shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
