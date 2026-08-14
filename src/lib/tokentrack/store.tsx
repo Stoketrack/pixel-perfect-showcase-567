@@ -312,10 +312,45 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PersistedState>(() => emptyState());
   const [ready, setReady] = useState(false);
   const [workingDate, setWorkingDate] = useState<string>(todayISO());
+  const [fx, setFx] = useState<{ rate: number; updatedAt: string | null; live: boolean }>({
+    rate: FALLBACK_USD_PHP_RATE,
+    updatedAt: null,
+    live: false,
+  });
 
   useEffect(() => {
     setState(load());
     setReady(true);
+    // Use the last known live rate immediately, then refresh from the source.
+    try {
+      const cached = window.localStorage.getItem(RATE_CACHE_KEY);
+      if (cached) {
+        const c = JSON.parse(cached) as { rate: number; updatedAt: string };
+        if (typeof c.rate === "number" && c.rate > 0) {
+          setFx({ rate: c.rate, updatedAt: c.updatedAt, live: true });
+        }
+      }
+    } catch {
+      /* no cached rate */
+    }
+    let cancelled = false;
+    const refresh = async () => {
+      const rate = await fetchUsdPhpRate();
+      if (cancelled || rate === null) return;
+      const updatedAt = new Date().toISOString();
+      setFx({ rate, updatedAt, live: true });
+      try {
+        window.localStorage.setItem(RATE_CACHE_KEY, JSON.stringify({ rate, updatedAt }));
+      } catch {
+        /* storage unavailable */
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(refresh, 60 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, []);
 
   useEffect(() => {
