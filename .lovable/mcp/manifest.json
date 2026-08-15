@@ -1,0 +1,337 @@
+{
+  "version": 1,
+  "sdk_version": "0.26.2",
+  "path": "/mcp",
+  "auth": {
+    "type": "none"
+  },
+  "mcp": {
+    "server": {
+      "name": "pixel-perfect-clone",
+      "version": "0.1.0",
+      "title": "Pixel Perfect Clone"
+    },
+    "tools": [
+      {
+        "name": "session_metrics",
+        "title": "Calculate session metrics",
+        "description": "Given a TokenTrack session (start/end time, follower snapshots, tokens, USD), calculate duration, time of day, follower change, USD value and earnings per hour. Uses the same rules as the app; never invents a token value.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "startTime": {
+              "type": "string",
+              "description": "Session start time as HH:mm (24h)."
+            },
+            "endTime": {
+              "type": "string",
+              "description": "Session end time as HH:mm (24h)."
+            },
+            "tokens": {
+              "description": "Tokens earned, or null.",
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "tokenValueUsd": {
+              "description": "USD per token for that platform, or null if unknown.",
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "usdEarned": {
+              "description": "Actual USD reported by the platform, if any.",
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "followersStart": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "followersEnd": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "startTime",
+            "endTime"
+          ]
+        },
+        "outputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "durationMinutes": {
+              "type": "number"
+            },
+            "durationLabel": {
+              "type": "string"
+            },
+            "timeOfDay": {
+              "type": "string"
+            },
+            "followerChange": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "usdValue": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "usdSource": {
+              "type": "string"
+            },
+            "usdPerHour": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "durationMinutes",
+            "durationLabel",
+            "timeOfDay",
+            "followerChange",
+            "usdValue",
+            "usdSource",
+            "usdPerHour"
+          ]
+        }
+      },
+      {
+        "name": "tokens_to_usd",
+        "title": "Convert tokens to USD",
+        "description": "Convert a token count to USD using an explicit platform-specific token value. There is no global token rate — the caller must supply tokenValueUsd; nothing is guessed.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "tokens": {
+              "type": "number",
+              "description": "Token count."
+            },
+            "tokenValueUsd": {
+              "type": "number",
+              "description": "USD per token for that specific platform."
+            }
+          },
+          "required": [
+            "tokens",
+            "tokenValueUsd"
+          ]
+        },
+        "outputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "tokens": {
+              "type": "number"
+            },
+            "tokenValueUsd": {
+              "type": "number"
+            },
+            "usdValue": {
+              "type": "number"
+            },
+            "source": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "tokens",
+            "tokenValueUsd",
+            "usdValue",
+            "source"
+          ]
+        }
+      },
+      {
+        "name": "usd_to_php",
+        "title": "Convert USD to PHP",
+        "description": "Convert a USD amount to Philippine pesos using the current live USD/PHP rate (the same source the app uses). Returns the rate so the USD figure stays the source of truth.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": true
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "amountUsd": {
+              "type": "number",
+              "description": "USD amount to convert. Numbers only, no currency symbols."
+            }
+          },
+          "required": [
+            "amountUsd"
+          ]
+        },
+        "outputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "amountUsd": {
+              "type": "number"
+            },
+            "usdPhpRate": {
+              "type": "number"
+            },
+            "rateIsLive": {
+              "type": "boolean"
+            },
+            "amountPhp": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "amountUsd",
+            "usdPhpRate",
+            "rateIsLive",
+            "amountPhp"
+          ]
+        }
+      },
+      {
+        "name": "platform_reference",
+        "title": "Platform slot reference",
+        "description": "List TokenTrack's six default platform slots with their display name, identity, status, dashboard position, default token value in USD and payout destination. Reference defaults only — a user's own settings live in their browser and are not exposed.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "slot": {
+              "description": "Optional dashboard slot 1-6 to return a single platform.",
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "outputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "platforms": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "slot": {
+                    "type": "number"
+                  },
+                  "displayName": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "tokenValueUsd": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "payoutDestination": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "slot",
+                  "displayName",
+                  "name",
+                  "status",
+                  "tokenValueUsd",
+                  "payoutDestination"
+                ]
+              }
+            }
+          },
+          "required": [
+            "platforms"
+          ]
+        }
+      }
+    ]
+  }
+}
