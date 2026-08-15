@@ -92,7 +92,63 @@
             "endTime"
           ]
         },
-        "outputSchema": null
+        "outputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "durationMinutes": {
+              "type": "number"
+            },
+            "durationLabel": {
+              "type": "string"
+            },
+            "timeOfDay": {
+              "type": "string"
+            },
+            "followerChange": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "usdValue": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "usdSource": {
+              "type": "string"
+            },
+            "usdPerHour": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "durationMinutes",
+            "durationLabel",
+            "timeOfDay",
+            "followerChange",
+            "usdValue",
+            "usdSource",
+            "usdPerHour"
+          ]
+        }
       },
       {
         "name": "tokens_to_usd",
@@ -121,7 +177,30 @@
             "tokenValueUsd"
           ]
         },
-        "outputSchema": null
+        "outputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "tokens": {
+              "type": "number"
+            },
+            "tokenValueUsd": {
+              "type": "number"
+            },
+            "usdValue": {
+              "type": "number"
+            },
+            "source": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "tokens",
+            "tokenValueUsd",
+            "usdValue",
+            "source"
+          ]
+        }
       },
       {
         "name": "usd_to_php",
@@ -144,7 +223,30 @@
             "amountUsd"
           ]
         },
-        "outputSchema": null
+        "outputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "amountUsd": {
+              "type": "number"
+            },
+            "usdPhpRate": {
+              "type": "number"
+            },
+            "rateIsLive": {
+              "type": "boolean"
+            },
+            "amountPhp": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "amountUsd",
+            "usdPhpRate",
+            "rateIsLive",
+            "amountPhp"
+          ]
+        }
       },
       {
         "name": "platform_reference",
@@ -172,7 +274,63 @@
             }
           }
         },
-        "outputSchema": null
+        "outputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "platforms": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "slot": {
+                    "type": "number"
+                  },
+                  "displayName": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "tokenValueUsd": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "payoutDestination": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "slot",
+                  "displayName",
+                  "name",
+                  "status",
+                  "tokenValueUsd",
+                  "payoutDestination"
+                ]
+              }
+            }
+          },
+          "required": [
+            "platforms"
+          ]
+        }
       }
     ]
   }

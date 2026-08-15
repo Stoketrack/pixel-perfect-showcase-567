@@ -10,6 +10,12 @@ export default defineTool({
     tokens: z.number().describe("Token count."),
     tokenValueUsd: z.number().describe("USD per token for that specific platform."),
   },
+  outputSchema: {
+    tokens: z.number(),
+    tokenValueUsd: z.number(),
+    usdValue: z.number(),
+    source: z.string(),
+  },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: ({ tokens, tokenValueUsd }) => {
     if (!Number.isFinite(tokens) || !Number.isFinite(tokenValueUsd)) {

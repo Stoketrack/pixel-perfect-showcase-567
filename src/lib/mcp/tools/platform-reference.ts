@@ -14,6 +14,18 @@ export default defineTool({
       .optional()
       .describe("Optional dashboard slot 1-6 to return a single platform."),
   },
+  outputSchema: {
+    platforms: z.array(
+      z.object({
+        slot: z.number(),
+        displayName: z.string(),
+        name: z.string(),
+        status: z.string(),
+        tokenValueUsd: z.number().nullable(),
+        payoutDestination: z.string().nullable(),
+      }),
+    ),
+  },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: ({ slot }) => {
     const platforms = DEFAULT_PLATFORMS.filter((p) => (slot ? p.slot === slot : true)).map((p) => ({

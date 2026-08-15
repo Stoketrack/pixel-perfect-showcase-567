@@ -39,6 +39,15 @@ export default defineTool({
     followersStart: z.number().nullable().optional(),
     followersEnd: z.number().nullable().optional(),
   },
+  outputSchema: {
+    durationMinutes: z.number(),
+    durationLabel: z.string(),
+    timeOfDay: z.string(),
+    followerChange: z.number().nullable(),
+    usdValue: z.number().nullable(),
+    usdSource: z.string(),
+    usdPerHour: z.number().nullable(),
+  },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: (input) => {
     const minutes = minutesBetween(input.startTime, input.endTime);
