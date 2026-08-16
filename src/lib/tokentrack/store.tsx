@@ -1,7 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { DerivedRow, EntryRow, Payout, Platform, PlatformStatus } from "./types";
+import { supabase } from "@/lib/supabase";
 
-const STORAGE_KEY = "tokentrack.v1";
+const STORAGE_KEY = "tokentrack.v1"; /* legacy — read-only, never written again */
+const LAYOUT_KEY = "tokentrack.layout.v1"; /* UI layout only, stays in browser */
+const MIGRATION_KEY = "tokentrack.migrated";
 export const OPENING_DATE = "2026-08-01";
 
 export const DEFAULT_PLATFORMS: Platform[] = [
@@ -161,23 +164,207 @@ function migrateRow(r: EntryRow): EntryRow {
   };
 }
 
-function load(): PersistedState {
-  if (typeof window === "undefined") return emptyState();
+// ── Supabase mapping helpers ───────────────────────────────
+
+const toNum = (v: unknown): number | null =>
+  v === null || v === undefined ? null : typeof v === "number" ? v : Number(v) || null;
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function dbToPlatform(row: any): Platform {
+  return {
+    id: row.id,
+    name: row.name,
+    displayName: row.display_name,
+    status: row.status,
+    slot: Number(row.slot),
+    inputMode: row.input_mode,
+    tokenValueUsd: toNum(row.token_value_usd),
+    openingBalanceUsd: Number(row.opening_balance_usd) || 0,
+    openingDate: row.opening_date,
+    accent: row.accent,
+    payoutDestination: row.payout_destination ?? "",
+    payoutInfo: row.payout_info ?? "",
+  };
+}
+
+function dbToEntryRow(row: any): EntryRow {
+  return {
+    id: row.id,
+    platformId: row.platform_id,
+    date: row.date,
+    startTime: row.start_time ?? null,
+    endTime: row.end_time ?? null,
+    timeOfDay: row.time_of_day ?? null,
+    roomCount: row.room_count ?? null,
+    followersStart: toNum(row.followers_start),
+    followersEnd: toNum(row.followers_end),
+    tokens: toNum(row.tokens),
+    usdActual: toNum(row.usd_actual),
+    followers: toNum(row.followers),
+    minutes: toNum(row.minutes),
+    tokenValueUsdAtEntry: toNum(row.token_value_usd_at_entry),
+    note: row.note ?? "",
+    origin: row.origin ?? "manual",
+    verified: row.verified ?? false,
+    importKey: row.import_key ?? null,
+    importBatchId: row.import_batch_id ?? null,
+    importedAt: row.imported_at ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function dbToPayout(row: any): Payout {
+  return {
+    id: row.id,
+    platformId: row.platform_id,
+    date: row.date,
+    amountUsd: Number(row.amount_usd) || 0,
+    destination: row.destination,
+    usdPhpRateAtEntry: toNum(row.usd_php_rate_at_entry),
+    note: row.note ?? "",
+    createdAt: row.created_at,
+  };
+}
+
+function platformToDb(p: Platform): Record<string, unknown> {
+  return {
+    id: p.id,
+    name: p.name,
+    display_name: p.displayName,
+    status: p.status,
+    slot: p.slot,
+    input_mode: p.inputMode,
+    token_value_usd: p.tokenValueUsd,
+    opening_balance_usd: p.openingBalanceUsd,
+    opening_date: p.openingDate,
+    accent: p.accent,
+    payout_destination: p.payoutDestination,
+    payout_info: p.payoutInfo,
+  };
+}
+
+function entryRowToDb(r: EntryRow): Record<string, unknown> {
+  return {
+    id: r.id,
+    platform_id: r.platformId,
+    date: r.date,
+    start_time: r.startTime,
+    end_time: r.endTime,
+    time_of_day: r.timeOfDay,
+    room_count: r.roomCount,
+    followers_start: r.followersStart,
+    followers_end: r.followersEnd,
+    tokens: r.tokens,
+    usd_actual: r.usdActual,
+    followers: r.followers,
+    minutes: r.minutes,
+    token_value_usd_at_entry: r.tokenValueUsdAtEntry,
+    note: r.note,
+    origin: r.origin,
+    verified: r.verified,
+    import_key: r.importKey,
+    import_batch_id: r.importBatchId,
+    imported_at: r.importedAt,
+    created_at: r.createdAt,
+    updated_at: r.updatedAt,
+  };
+}
+
+function payoutToDb(p: Payout): Record<string, unknown> {
+  return {
+    id: p.id,
+    platform_id: p.platformId,
+    date: p.date,
+    amount_usd: p.amountUsd,
+    destination: p.destination,
+    usd_php_rate_at_entry: p.usdPhpRateAtEntry,
+    note: p.note,
+    created_at: p.createdAt,
+  };
+}
+
+function platformPatchToDb(patch: Partial<Platform>): Record<string, unknown> {
+  const db: Record<string, unknown> = {};
+  if (patch.name !== undefined) db.name = patch.name;
+  if (patch.displayName !== undefined) db.display_name = patch.displayName;
+  if (patch.status !== undefined) db.status = patch.status;
+  if (patch.slot !== undefined) db.slot = patch.slot;
+  if (patch.inputMode !== undefined) db.input_mode = patch.inputMode;
+  if (patch.tokenValueUsd !== undefined) db.token_value_usd = patch.tokenValueUsd;
+  if (patch.openingBalanceUsd !== undefined) db.opening_balance_usd = patch.openingBalanceUsd;
+  if (patch.openingDate !== undefined) db.opening_date = patch.openingDate;
+  if (patch.accent !== undefined) db.accent = patch.accent;
+  if (patch.payoutDestination !== undefined) db.payout_destination = patch.payoutDestination;
+  if (patch.payoutInfo !== undefined) db.payout_info = patch.payoutInfo;
+  return db;
+}
+
+function entryPatchToDb(patch: Partial<EntryRow>): Record<string, unknown> {
+  const db: Record<string, unknown> = {};
+  if (patch.platformId !== undefined) db.platform_id = patch.platformId;
+  if (patch.date !== undefined) db.date = patch.date;
+  if (patch.startTime !== undefined) db.start_time = patch.startTime;
+  if (patch.endTime !== undefined) db.end_time = patch.endTime;
+  if (patch.timeOfDay !== undefined) db.time_of_day = patch.timeOfDay;
+  if (patch.roomCount !== undefined) db.room_count = patch.roomCount;
+  if (patch.followersStart !== undefined) db.followers_start = patch.followersStart;
+  if (patch.followersEnd !== undefined) db.followers_end = patch.followersEnd;
+  if (patch.tokens !== undefined) db.tokens = patch.tokens;
+  if (patch.usdActual !== undefined) db.usd_actual = patch.usdActual;
+  if (patch.followers !== undefined) db.followers = patch.followers;
+  if (patch.minutes !== undefined) db.minutes = patch.minutes;
+  if (patch.tokenValueUsdAtEntry !== undefined) db.token_value_usd_at_entry = patch.tokenValueUsdAtEntry;
+  if (patch.note !== undefined) db.note = patch.note;
+  if (patch.origin !== undefined) db.origin = patch.origin;
+  if (patch.verified !== undefined) db.verified = patch.verified;
+  if (patch.importKey !== undefined) db.import_key = patch.importKey;
+  if (patch.importBatchId !== undefined) db.import_batch_id = patch.importBatchId;
+  if (patch.importedAt !== undefined) db.imported_at = patch.importedAt;
+  return db;
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+/**
+ * One-time migration: pushes existing localStorage `tokentrack.v1` data into
+ * Supabase so no figures are lost. Platforms are upserted (custom settings win);
+ * entries and payouts are inserted with ON CONFLICT DO NOTHING so existing DB
+ * rows are never overwritten. The legacy localStorage key is left untouched.
+ */
+async function migrateLocalStorageToSupabase(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const raw = window.localStorage.getItem(STORAGE_KEY);
+  if (!raw) return;
+
+  let parsed: Partial<PersistedState>;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return emptyState();
-    const parsed = JSON.parse(raw) as Partial<PersistedState>;
-    const platforms = (parsed.platforms?.length ? parsed.platforms : DEFAULT_PLATFORMS).map(
-      migratePlatform,
-    );
-    return {
-      platforms,
-      rows: (parsed.rows ?? []).map(migrateRow),
-      payouts: parsed.payouts ?? [],
-      layout: { ...defaultLayout(platforms), ...(parsed.layout ?? {}) },
-    };
+    parsed = JSON.parse(raw) as Partial<PersistedState>;
   } catch {
-    return emptyState();
+    return;
+  }
+
+  if (parsed.platforms?.length) {
+    const dbRows = parsed.platforms.map(migratePlatform).map(platformToDb);
+    const { error } = await supabase
+      .from("tokentrack_platforms")
+      .upsert(dbRows, { onConflict: "id" });
+    if (error) console.error("Platform migration error:", error);
+  }
+
+  if (parsed.rows?.length) {
+    const dbRows = parsed.rows.map(migrateRow).map(entryRowToDb);
+    const { error } = await supabase
+      .from("tokentrack_entries")
+      .upsert(dbRows, { onConflict: "id", ignoreDuplicates: true });
+    if (error) console.error("Entry migration error:", error);
+  }
+
+  if (parsed.payouts?.length) {
+    const dbRows = parsed.payouts.map(payoutToDb);
+    const { error } = await supabase
+      .from("tokentrack_payouts")
+      .upsert(dbRows, { onConflict: "id", ignoreDuplicates: true });
+    if (error) console.error("Payout migration error:", error);
   }
 }
 
@@ -253,7 +440,6 @@ export function deriveRow(row: EntryRow): DerivedRow {
     usdPerHour: minutesValue > 0 ? usdValue / (minutesValue / 60) : null,
   };
 }
-
 
 /** Never let a missing/corrupt figure crash the UI — render 0 instead. */
 const safeNum = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? n : 0);
@@ -337,9 +523,72 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    setState(load());
-    setReady(true);
-    // Use the last known live rate immediately, then refresh from the source.
+    let cancelled = false;
+
+    const init = async () => {
+      // 1. Load layout from localStorage (browser-only UI state)
+      let layout = defaultLayout(DEFAULT_PLATFORMS);
+      try {
+        const layoutRaw = window.localStorage.getItem(LAYOUT_KEY);
+        if (layoutRaw) {
+          layout = { ...layout, ...JSON.parse(layoutRaw) };
+        } else {
+          const legacyRaw = window.localStorage.getItem(STORAGE_KEY);
+          if (legacyRaw) {
+            const legacy = JSON.parse(legacyRaw) as Partial<PersistedState>;
+            if (legacy.layout) layout = { ...layout, ...legacy.layout };
+          }
+        }
+      } catch {
+        /* no layout */
+      }
+
+      // 2. One-time migration of legacy localStorage data into Supabase
+      try {
+        const migrated = window.localStorage.getItem(MIGRATION_KEY);
+        if (!migrated) {
+          await migrateLocalStorageToSupabase();
+          window.localStorage.setItem(MIGRATION_KEY, new Date().toISOString());
+        }
+      } catch (e) {
+        console.error("Migration failed:", e);
+      }
+
+      // 3. Load all operational data from Supabase
+      try {
+        const [platformsRes, entriesRes, payoutsRes] = await Promise.all([
+          supabase.from("tokentrack_platforms").select("*").order("slot"),
+          supabase.from("tokentrack_entries").select("*"),
+          supabase.from("tokentrack_payouts").select("*"),
+        ]);
+
+        if (platformsRes.error) throw platformsRes.error;
+        if (entriesRes.error) throw entriesRes.error;
+        if (payoutsRes.error) throw payoutsRes.error;
+
+        const platforms = (platformsRes.data ?? []).map(dbToPlatform);
+        const rows = (entriesRes.data ?? []).map(dbToEntryRow);
+        const payouts = (payoutsRes.data ?? []).map(dbToPayout);
+
+        if (!cancelled) {
+          setState({
+            platforms: platforms.length > 0 ? platforms.map(migratePlatform) : DEFAULT_PLATFORMS,
+            rows,
+            payouts,
+            layout,
+          });
+        }
+      } catch (e) {
+        console.error("Failed to load from Supabase:", e);
+        if (!cancelled) setState({ ...emptyState(), layout });
+      }
+
+      if (!cancelled) setReady(true);
+    };
+
+    void init();
+
+    // 4. FX rate (unchanged — browser-cached, auto-refreshed)
     try {
       const cached = window.localStorage.getItem(RATE_CACHE_KEY);
       if (cached) {
@@ -351,7 +600,6 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
     } catch {
       /* no cached rate */
     }
-    let cancelled = false;
     const refresh = async () => {
       const rate = await fetchUsdPhpRate();
       if (cancelled || rate === null) return;
@@ -365,20 +613,22 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
     };
     void refresh();
     const timer = window.setInterval(refresh, 60 * 60 * 1000);
+
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
   }, []);
 
+  // Layout persists in the browser only — never sent to Supabase.
   useEffect(() => {
     if (!ready) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      window.localStorage.setItem(LAYOUT_KEY, JSON.stringify(state.layout));
     } catch {
-      /* storage unavailable — keep working in memory */
+      /* storage unavailable */
     }
-  }, [state, ready]);
+  }, [state.layout, ready]);
 
   const rowsFor = useCallback(
     (platformId: string, date?: string) =>
@@ -474,22 +724,23 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
         setState((s) => {
           const platform = s.platforms.find((p) => p.id === platformId);
           if (!platform || !Number.isFinite(amountUsd) || amountUsd <= 0) return s;
-          return {
-            ...s,
-            payouts: [
-              ...s.payouts,
-              {
-                id: `payout-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                platformId,
-                date,
-                amountUsd,
-                destination: platform.payoutDestination ?? "Unassigned",
-                usdPhpRateAtEntry: fx.rate,
-                note: note ?? "",
-                createdAt: new Date().toISOString(),
-              },
-            ],
+          const payout: Payout = {
+            id: `payout-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            platformId,
+            date,
+            amountUsd,
+            destination: platform.payoutDestination ?? "Unassigned",
+            usdPhpRateAtEntry: fx.rate,
+            note: note ?? "",
+            createdAt: new Date().toISOString(),
           };
+          void supabase
+            .from("tokentrack_payouts")
+            .insert(payoutToDb(payout))
+            .then(({ error }) => {
+              if (error) console.error("Failed to persist payout:", error);
+            });
+          return { ...s, payouts: [...s.payouts, payout] };
         }),
       addRow: (row) =>
         setState((s) => {
@@ -503,10 +754,18 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
             createdAt: now,
             updatedAt: now,
           };
+          void supabase
+            .from("tokentrack_entries")
+            .insert(entryRowToDb(full))
+            .then(({ error }) => {
+              if (error) console.error("Failed to persist entry row:", error);
+            });
           return { ...s, rows: [...s.rows, full] };
         }),
       importRows: (incoming, batchId) => {
         const stats = { inserted: 0, enriched: 0, unchanged: 0 };
+        const toInsert: EntryRow[] = [];
+        const toUpdate: { id: string; patch: Record<string, unknown> }[] = [];
         setState((s) => {
           const now = new Date().toISOString();
           const rows = [...s.rows];
@@ -514,7 +773,7 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
             const key = item.importKey ?? rowImportKey({ startTime: null, ...item });
             const idx = rows.findIndex((r) => (r.importKey ?? rowImportKey(r)) === key);
             if (idx === -1) {
-              rows.push({
+              const full: EntryRow = {
                 startTime: null,
                 endTime: null,
                 timeOfDay: null,
@@ -536,17 +795,17 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
                 id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
                 createdAt: now,
                 updatedAt: now,
-              } as EntryRow);
+              } as EntryRow;
+              rows.push(full);
+              toInsert.push(full);
               stats.inserted += 1;
               continue;
             }
             const existing = rows[idx] as EntryRow;
-            // Re-running the same verified batch is a no-op.
             if (existing.verified && existing.importBatchId === batchId) {
               stats.unchanged += 1;
               continue;
             }
-            // Verified figures enrich the provisional record; history is kept, never deleted.
             const merged: EntryRow = {
               ...existing,
               ...Object.fromEntries(
@@ -562,7 +821,26 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
               updatedAt: now,
             };
             rows[idx] = merged;
+            toUpdate.push({ id: merged.id, patch: entryRowToDb(merged) });
             stats.enriched += 1;
+          }
+          // Persist asynchronously
+          if (toInsert.length) {
+            void supabase
+              .from("tokentrack_entries")
+              .insert(toInsert.map(entryRowToDb))
+              .then(({ error }) => {
+                if (error) console.error("Failed to persist imported rows:", error);
+              });
+          }
+          for (const { id, patch } of toUpdate) {
+            void supabase
+              .from("tokentrack_entries")
+              .update(patch)
+              .eq("id", id)
+              .then(({ error }) => {
+                if (error) console.error("Failed to persist enriched row:", error);
+              });
           }
           return { ...s, rows };
         });
@@ -575,12 +853,29 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
             r.id === id ? { ...r, ...patch, updatedAt: new Date().toISOString() } : r,
           ),
         })),
-      deleteRow: (id) => setState((s) => ({ ...s, rows: s.rows.filter((r) => r.id !== id) })),
-      updatePlatform: (id, patch) =>
+      deleteRow: (id) => {
+        setState((s) => ({ ...s, rows: s.rows.filter((r) => r.id !== id) }));
+        void supabase
+          .from("tokentrack_entries")
+          .delete()
+          .eq("id", id)
+          .then(({ error }) => {
+            if (error) console.error("Failed to delete row:", error);
+          });
+      },
+      updatePlatform: (id, patch) => {
         setState((s) => ({
           ...s,
           platforms: s.platforms.map((p) => (p.id === id ? { ...p, ...patch } : p)),
-        })),
+        }));
+        void supabase
+          .from("tokentrack_platforms")
+          .update(platformPatchToDb(patch))
+          .eq("id", id)
+          .then(({ error }) => {
+            if (error) console.error("Failed to persist platform update:", error);
+          });
+      },
       setPanel: (platformId, patch) =>
         setState((s) => ({
           ...s,
