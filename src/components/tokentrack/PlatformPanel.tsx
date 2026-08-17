@@ -40,9 +40,12 @@ export function PlatformPanel({
   onFocus,
   zIndex,
 }: Props) {
-  const { currentTotalFor, currentFollowersFor, usdPhpRate, setPanel } = useTokenTrack();
+  const { currentTotalFor, currentFollowersFor, totalTokensFor, totalUsdFor, usdPhpRate, setPanel } =
+    useTokenTrack();
   const currentTotal = currentTotalFor(platform.id);
   const followers = currentFollowersFor(platform.id);
+  const totalTokens = totalTokensFor(platform.id);
+  const totalUsdEarned = totalUsdFor(platform.id);
   const ref = useRef<HTMLElement | null>(null);
   const [dragging, setDragging] = useState(false);
   const [pos, setPos] = useState({ x: layout.x, y: layout.y });
@@ -142,6 +145,19 @@ export function PlatformPanel({
             {fmtPhp(currentTotal * usdPhpRate)}
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground">Unpaid balance</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-lg border border-border bg-console/60 px-3 py-2">
+            <p className="label-micro">Total tokens earned</p>
+            <p className="numeric text-sm text-token">
+              {totalTokens > 0 ? fmtNum(totalTokens) : "—"}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border bg-console/60 px-3 py-2">
+            <p className="label-micro">Total USD earned</p>
+            <p className="numeric text-sm">{fmtUsd(totalUsdEarned)}</p>
+          </div>
         </div>
 
         <div className="flex items-center justify-between rounded-lg border border-border bg-console/60 px-3 py-2">

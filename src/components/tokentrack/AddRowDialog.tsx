@@ -9,14 +9,14 @@ interface Props {
   onClose: () => void;
 }
 
-
 export function AddRowDialog({ platform, date, onClose }: Props) {
-  const { addRow } = useTokenTrack();
+  const { addRow, lastEntryFor } = useTokenTrack();
   const [rowDate, setRowDate] = useState(date);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [roomCount, setRoomCount] = useState("");
-  const [followersStart, setFollowersStart] = useState("");
+  const [followersStart, setFollowersStart] = useState<string>("");
+  const [followersStartLocked, setFollowersStartLocked] = useState(false);
   const [followersEnd, setFollowersEnd] = useState("");
   const [tokens, setTokens] = useState("");
   const [usd, setUsd] = useState("");
@@ -24,6 +24,21 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
   const [listening, setListening] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
   const recognitionRef = useRef<any>(null);
+
+  // Auto-fill starting followers from the most recent saved entry for this platform.
+  // null = no previous entry exists (leave empty for manual entry).
+  // 0 = a previous entry exists and its actual value was zero.
+  useEffect(() => {
+    const last = lastEntryFor(platform.id);
+    if (last && last.followersEnd !== null && last.followersEnd !== undefined) {
+      setFollowersStart(String(last.followersEnd));
+      setFollowersStartLocked(true);
+    } else {
+      setFollowersStart("");
+      setFollowersStartLocked(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platform.id]);
 
   useEffect(() => {
     const SR =
@@ -125,7 +140,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
       >
         <header className="flex items-center justify-between border-b border-border bg-panel-header px-3 py-2">
           <div>
-            <p className="label-micro">New row for</p>
+            <p className="label-micro">New entry for</p>
             <h2 className="text-sm font-semibold">{platform.name}</h2>
           </div>
           <div className="flex items-center gap-2">
@@ -192,21 +207,34 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
             {/* Row 2 */}
             <div>
               <label className="label-micro" htmlFor="row-fol-start">
-                Followers at Start
+                Followers at start
               </label>
               <input
                 id="row-fol-start"
                 inputMode="numeric"
                 value={followersStart}
-                onChange={(e) => setFollowersStart(e.target.value)}
-                placeholder="0"
-                className={compactField}
+                onChange={(e) => {
+                  setFollowersStart(e.target.value);
+                  setFollowersStartLocked(false);
+                }}
+                placeholder={followersStartLocked ? "" : "enter manually"}
+                className={`${compactField} ${followersStartLocked ? "text-muted-foreground" : ""}`}
+                aria-label={
+                  followersStartLocked
+                    ? "Auto-filled from previous entry's ending followers"
+                    : "Followers at start — no previous entry exists"
+                }
               />
+              {followersStartLocked && (
+                <p className="mt-0.5 text-[9px] text-muted-foreground">
+                  From previous entry
+                </p>
+              )}
             </div>
 
             <div>
               <label className="label-micro" htmlFor="row-fol-end">
-                Followers at End
+                Followers at end
               </label>
               <input
                 id="row-fol-end"
@@ -235,7 +263,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
             {/* Row 3 */}
             <div>
               <label className="label-micro" htmlFor="row-tokens">
-                Tokens
+                Tokens earned today
               </label>
               <input
                 id="row-tokens"
@@ -249,7 +277,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
 
             <div>
               <label className="label-micro" htmlFor="row-usd">
-                USD Earned
+                USD earned today
               </label>
               <input
                 id="row-usd"
@@ -310,7 +338,7 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
                 type="submit"
                 className="h-8 rounded-md bg-primary px-6 text-xs font-bold uppercase tracking-wider text-primary-foreground hover:opacity-90"
               >
-                Save Row
+                Save Entry
               </button>
             </div>
           </div>
@@ -340,9 +368,9 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
           </div>
 
           <p className="mt-2 rounded-md border border-border bg-console/60 px-3 py-1.5 text-[11px] text-muted-foreground">
-            Record only what the platform actually reported. Tokens or USD may be left blank — no
-            conversion rate is invented. Derived figures are always recalculated from these
-            originals.
+            Enter only what the platform reported for this day/session. Tokens and USD are daily
+            figures, not running totals. If a previous entry exists, its ending followers are used
+            as the starting value automatically.
           </p>
         </div>
       </form>

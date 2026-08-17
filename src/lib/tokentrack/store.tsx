@@ -479,6 +479,12 @@ interface StoreValue {
   currentTotalFor: (platformId: string) => number;
   /** Latest recorded follower count for the platform, or null when unknown. */
   currentFollowersFor: (platformId: string) => number | null;
+  /** Most recent saved entry for a platform (by date/createdAt), or null when none exist. */
+  lastEntryFor: (platformId: string) => EntryRow | null;
+  /** Total tokens across all saved entries for a platform (running total). */
+  totalTokensFor: (platformId: string) => number;
+  /** Total USD earned across all saved entries for a platform (running total). */
+  totalUsdFor: (platformId: string) => number;
   payoutsFor: (platformId: string) => Payout[];
   addPayout: (payout: { platformId: string; date: string; amountUsd: number; note?: string }) => void;
   addRow: (
@@ -695,6 +701,36 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
     [state.rows],
   );
 
+  const lastEntryFor = useCallback(
+    (platformId: string): EntryRow | null => {
+      const rows = state.rows
+        .filter((r) => r.platformId === platformId)
+        .sort((a, b) =>
+          a.date === b.date
+            ? a.createdAt.localeCompare(b.createdAt)
+            : a.date.localeCompare(b.date),
+        );
+      return rows.length > 0 ? rows[rows.length - 1] : null;
+    },
+    [state.rows],
+  );
+
+  const totalTokensFor = useCallback(
+    (platformId: string): number =>
+      state.rows
+        .filter((r) => r.platformId === platformId)
+        .reduce((sum, r) => sum + (r.tokens ?? 0), 0),
+    [state.rows],
+  );
+
+  const totalUsdFor = useCallback(
+    (platformId: string): number =>
+      state.rows
+        .filter((r) => r.platformId === platformId)
+        .reduce((sum, r) => sum + deriveRow(r).usdValue, 0),
+    [state.rows],
+  );
+
   const payoutsFor = useCallback(
     (platformId: string) =>
       state.payouts
@@ -719,6 +755,9 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
       summaryFor,
       currentTotalFor,
       currentFollowersFor,
+      lastEntryFor,
+      totalTokensFor,
+      totalUsdFor,
       payoutsFor,
       addPayout: ({ platformId, date, amountUsd, note }) =>
         setState((s) => {
@@ -846,13 +885,22 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
         });
         return stats;
       },
-      updateRow: (id, patch) =>
+      updateRow: (id, patch) => {
+        const now = new Date().toISOString();
         setState((s) => ({
           ...s,
           rows: s.rows.map((r) =>
-            r.id === id ? { ...r, ...patch, updatedAt: new Date().toISOString() } : r,
+            r.id === id ? { ...r, ...patch, updatedAt: now } : r,
           ),
-        })),
+        }));
+        void supabase
+          .from("tokentrack_entries")
+          .update({ ...entryPatchToDb(patch), updated_at: now })
+          .eq("id", id)
+          .then(({ error }) => {
+            if (error) console.error("Failed to persist row update:", error);
+          });
+      },
       deleteRow: (id) => {
         setState((s) => ({ ...s, rows: s.rows.filter((r) => r.id !== id) }));
         void supabase
@@ -901,6 +949,9 @@ export function TokenTrackProvider({ children }: { children: ReactNode }) {
       summaryFor,
       currentTotalFor,
       currentFollowersFor,
+      lastEntryFor,
+      totalTokensFor,
+      totalUsdFor,
       payoutsFor,
     ],
   );
