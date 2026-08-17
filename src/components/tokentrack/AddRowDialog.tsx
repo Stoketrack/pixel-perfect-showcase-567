@@ -180,26 +180,30 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
 
             <div>
               <label className="label-micro" htmlFor="row-start">
-                Start time
+                Start time (24h)
               </label>
               <input
                 id="row-start"
                 type="time"
+                step={60}
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
+                placeholder="09:00"
                 className={compactField}
               />
             </div>
 
             <div>
               <label className="label-micro" htmlFor="row-end">
-                End time
+                End time (24h)
               </label>
               <input
                 id="row-end"
                 type="time"
+                step={60}
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
+                placeholder="13:00"
                 className={compactField}
               />
             </div>
