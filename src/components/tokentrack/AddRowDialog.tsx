@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Mic, MicOff, X } from "lucide-react";
 import { durationMinutes, fmtHours, fmtUsd, timeOfDayFrom, useTokenTrack } from "@/lib/tokentrack/store";
 import type { Platform } from "@/lib/tokentrack/types";
@@ -9,11 +9,24 @@ interface Props {
   onClose: () => void;
 }
 
+/**
+ * Converts a 4-digit HHMM string (e.g. "2200") to "HH:mm" ("22:00").
+ * Returns "" for invalid/empty/partial input.
+ * Validates hours 00-23 and minutes 00-59.
+ */
+function hhmmToTime(hhmm: string): string {
+  if (hhmm.length !== 4) return "";
+  const h = parseInt(hhmm.slice(0, 2), 10);
+  const m = parseInt(hhmm.slice(2), 10);
+  if (h > 23 || m > 59) return "";
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
 export function AddRowDialog({ platform, date, onClose }: Props) {
   const { addRow, lastEntryFor } = useTokenTrack();
   const [rowDate, setRowDate] = useState(date);
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const [startTimeInput, setStartTimeInput] = useState("");
+  const [endTimeInput, setEndTimeInput] = useState("");
   const [roomCount, setRoomCount] = useState("");
   const [followersStart, setFollowersStart] = useState<string>("");
   const [followersStartLocked, setFollowersStartLocked] = useState(false);
@@ -25,9 +38,11 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
   const [voiceSupported, setVoiceSupported] = useState(false);
   const recognitionRef = useRef<any>(null);
 
+  // Derive HH:mm values from the 4-digit input strings.
+  const startTime = useMemo(() => hhmmToTime(startTimeInput), [startTimeInput]);
+  const endTime = useMemo(() => hhmmToTime(endTimeInput), [endTimeInput]);
+
   // Auto-fill starting followers from the most recent saved entry for this platform.
-  // null = no previous entry exists (leave empty for manual entry).
-  // 0 = a previous entry exists and its actual value was zero.
   useEffect(() => {
     const last = lastEntryFor(platform.id);
     if (last && last.followersEnd !== null && last.followersEnd !== undefined) {
@@ -85,6 +100,16 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
 
   const num = (v: string) => (v.trim() === "" ? null : Number(v));
 
+  const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleaned = e.target.value.replace(/[^0-9]/g, "");
+    if (cleaned.length <= 4) setStartTimeInput(cleaned);
+  };
+
+  const handleEndTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleaned = e.target.value.replace(/[^0-9]/g, "");
+    if (cleaned.length <= 4) setEndTimeInput(cleaned);
+  };
+
   // Live preview of the values that will be derived from this row.
   const previewMinutes = durationMinutes(startTime || null, endTime || null);
   const previewTimeOfDay = timeOfDayFrom(startTime || null);
@@ -99,6 +124,9 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
     previewMinutes && previewMinutes > 0 && previewUsd !== null
       ? previewUsd / (previewMinutes / 60)
       : null;
+
+  const startTimeValid = startTimeInput.length === 0 || startTime !== "";
+  const endTimeValid = endTimeInput.length === 0 || endTime !== "";
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,13 +212,18 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               </label>
               <input
                 id="row-start"
-                type="time"
-                step={60}
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                placeholder="09:00"
-                className={compactField}
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                value={startTimeInput}
+                onChange={handleStartTimeChange}
+                placeholder="0900"
+                className={`${compactField} ${!startTimeValid ? "border-error" : ""}`}
+                aria-label="Start time as 4-digit 24-hour HHMM, e.g. 0900 or 2200"
               />
+              {startTime && (
+                <p className="mt-0.5 text-[9px] text-muted-foreground">{startTime}</p>
+              )}
             </div>
 
             <div>
@@ -199,13 +232,18 @@ export function AddRowDialog({ platform, date, onClose }: Props) {
               </label>
               <input
                 id="row-end"
-                type="time"
-                step={60}
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                placeholder="13:00"
-                className={compactField}
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                value={endTimeInput}
+                onChange={handleEndTimeChange}
+                placeholder="1300"
+                className={`${compactField} ${!endTimeValid ? "border-error" : ""}`}
+                aria-label="End time as 4-digit 24-hour HHMM, e.g. 1300 or 2200"
               />
+              {endTime && (
+                <p className="mt-0.5 text-[9px] text-muted-foreground">{endTime}</p>
+              )}
             </div>
 
             {/* Row 2 */}
